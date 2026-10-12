@@ -1,0 +1,249 @@
+// ================= Файл данных =================
+// Все данные — один JSON-документ: локальная копия в браузере + копия в OneDrive (onedrive.js).
+// В табель попадают не все дни, а только отклонения от графика (marks): кто не вышел,
+// вышел не на полную смену или сверх графика. Остальные клетки считаются по графику.
+
+const DATA_FORMAT = 'tabel-smeny';
+const DATA_VERSION = 1;
+
+function emptyData() {
+  return {
+    format: DATA_FORMAT,
+    version: DATA_VERSION,
+    updatedAt: null,
+    settings: { ...CONFIG.defaults },
+    people: [],     // { id, name, position, archived } — порядок массива = порядок в табеле
+    marks: [],      // { id: 'YYYY-MM-DD|personId', date, pid, v, reason } — v: число часов или код ('Б', 'ОТ', '-', '')
+    notes: [],      // свободные примечания к месяцу: { id, month: 'YYYY-MM', text }
+    reports: [],    // снимки 16-го и 1-го: { id: 'YYYY-MM-16' | 'YYYY-MM-final', savedAt, sentAt, dismissed }
+  };
+}
+
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+function normalizeData(raw) {
+  if (!raw || typeof raw !== 'object' || raw.format !== DATA_FORMAT) {
+    throw new Error('Это не файл данных «Табеля смены».');
+  }
+  if (raw.version > DATA_VERSION) {
+    throw new Error('Файл создан более новой версией приложения. Обновите страницу.');
+  }
+  const base = emptyData();
+  const data = { ...base, ...raw, format: DATA_FORMAT, version: DATA_VERSION };
+  for (const key of Object.keys(base)) {
+    if (Array.isArray(base[key]) && !Array.isArray(data[key])) data[key] = [];
+  }
+  data.settings = { ...base.settings, ...(raw.settings || {}) };
+  return data;
+}
+
+// ---------- Адаптер: локальная копия в браузере ----------
+const LocalBackend = {
+  KEY: 'ts.data',
+  load() {
+    try {
+      const raw = localStorage.getItem(this.KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  },
+  save(data) {
+    try { localStorage.setItem(this.KEY, JSON.stringify(data)); return true; } catch { return false; }
+  },
+};
+
+// ---------- Хранилище ----------
+const DB = (() => {
+  const backend = LocalBackend;
+  const listeners = [];
+  let data;
+
+  try { data = normalizeData(backend.load()); }
+  catch { data = emptyData(); }
+
+  const emit = () => listeners.forEach((fn) => fn(data));
+  let saveFailed = false;
+  let remote = null;
+
+  function persist(replaceAll = false) {
+    saveFailed = !backend.save(data);
+    if (saveFailed) alert('Не удалось сохранить данные: память браузера переполнена или недоступна.');
+    remote?.localChange({ replaceAll });
+  }
+
+  window.addEventListener('storage', (e) => {
+    if (e.key !== backend.KEY) return;
+    try { data = normalizeData(JSON.parse(e.newValue)); emit(); } catch {}
+  });
+
+  return {
+    get data() { return data; },
+
+    get saveState() {
+      if (saveFailed) return { state: 'error', at: data.updatedAt, pending: 0 };
+      const cloud = remote?.state();
+      return { at: data.updatedAt, pending: 0, ...(cloud || { state: 'saved' }) };
+    },
+
+    attachSync(adapter) { remote = adapter; },
+
+    applyRemote(doc) {
+      data = normalizeData(doc);
+      saveFailed = !backend.save(data);
+      emit();
+    },
+
+    update(fn) {
+      fn(data);
+      data.updatedAt = new Date().toISOString();
+      persist();
+      emit();
+    },
+
+    replace(newData) {
+      data = normalizeData(newData);
+      persist(true);
+      emit();
+    },
+
+    onChange(fn) { listeners.push(fn); },
+
+    exportFile() {
+      const d = new Date();
+      const p = (n) => String(n).padStart(2, '0');
+      const name = `tabel-smeny_${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}.json`;
+      downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), name);
+    },
+
+    async readFile(file) {
+      let raw;
+      try { raw = JSON.parse(await file.text()); }
+      catch { throw new Error('Файл повреждён или это не JSON.'); }
+      return normalizeData(raw);
+    },
+  };
+})();
+
+function downloadBlob(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// ================= Даты и график =================
+// Даты — строки 'YYYY-MM-DD'; считаем в UTC, чтобы переход на летнее время не сдвигал дни.
+const Dates = {
+  MONTHS: ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'],
+  MONTHS_GEN: ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'],
+  WD: ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'],
+  WD_FULL: ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота'],
+
+  num(iso) { const [y, m, d] = iso.split('-').map(Number); return Date.UTC(y, m - 1, d) / 864e5; },
+  iso(n) { return new Date(n * 864e5).toISOString().slice(0, 10); },
+  add(iso, days) { return this.iso(this.num(iso) + days); },
+  today() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  },
+  wd(iso) { return new Date(this.num(iso) * 864e5).getUTCDay(); },
+  daysIn(y, m) { return new Date(Date.UTC(y, m, 0)).getUTCDate(); }, // m — 1..12
+  ym(iso) { return iso.slice(0, 7); },
+  dm(iso) { return `${iso.slice(8, 10)}.${iso.slice(5, 7)}`; },
+  monthTitle(ym) { const [y, m] = ym.split('-').map(Number); return `${this.MONTHS[m - 1]} ${y}`; },
+  addMonths(ym, k) {
+    const [y, m] = ym.split('-').map(Number);
+    const t = y * 12 + (m - 1) + k;
+    return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, '0')}`;
+  },
+  monthDays(ym) {
+    const [y, m] = ym.split('-').map(Number);
+    return Array.from({ length: this.daysIn(y, m) }, (_, i) => `${ym}-${String(i + 1).padStart(2, '0')}`);
+  },
+};
+
+const Sched = {
+  // 'Д' | 'Н' | 'В'
+  type(iso, s = DB.data.settings) {
+    const n = s.cycle.length;
+    const k = (((Dates.num(iso) - Dates.num(s.anchor)) % n) + n) % n;
+    return s.cycle[k];
+  },
+  hoursOf(type, s = DB.data.settings) {
+    return type === 'Д' ? s.dayHours : type === 'Н' ? s.nightHours : 0;
+  },
+  hours(iso, s = DB.data.settings) { return this.hoursOf(this.type(iso, s), s); },
+};
+
+// ================= Табель =================
+const Tabel = {
+  markId: (date, pid) => `${date}|${pid}`,
+
+  marksMap() { return new Map(DB.data.marks.map((m) => [m.id, m])); },
+
+  // Клетка без отметки: часы по графику, но только за наступившие дни — будущие пустые,
+  // пока день не придёт (отметки на будущее, например больничный «по 20-е», показываются сразу).
+  def(date) {
+    return date <= Dates.today() ? Sched.hours(date) || '' : '';
+  },
+
+  // Значение клетки: число часов, код или '' (пусто).
+  cell(pid, date, map = this.marksMap()) {
+    const m = map.get(this.markId(date, pid));
+    return m ? m.v : this.def(date);
+  },
+
+  setMark(date, pid, v, reason = '') {
+    const id = this.markId(date, pid);
+    const list = DB.data.marks.filter((m) => m.id !== id);
+    const def = this.def(date);
+    // Совпадает с графиком и без причины — отметка не нужна.
+    if (!(v === def && !reason)) list.push({ id, date, pid, v, ...(reason ? { reason } : {}) });
+    DB.data.marks = list;
+  },
+
+  // Люди месяца: действующие + архивные, у кого есть отметки в этом месяце.
+  peopleOf(ym) {
+    const withMarks = new Set(DB.data.marks.filter((m) => m.date.startsWith(ym)).map((m) => m.pid));
+    return DB.data.people.filter((p) => !p.archived || withMarks.has(p.id));
+  },
+
+  total(pid, ym, map = this.marksMap()) {
+    return Dates.monthDays(ym).reduce((s, d) => {
+      const v = this.cell(pid, d, map);
+      return s + (typeof v === 'number' ? v : 0);
+    }, 0);
+  },
+
+  surname: (p) => (p?.name || '').trim().split(/\s+/)[0] || '',
+  shortName(p) {
+    const [f, i, o] = (p?.name || '').trim().split(/\s+/);
+    return [f, i ? `${i[0]}.` : '', o ? `${o[0]}.` : ''].join(' ').replace(/\s+/g, ' ').trim();
+  },
+  label: (p) => (p.position ? `${p.name} (${p.position})` : p.name),
+
+  // Примечания под табелем: «04.09 Иванова заявление за свой счёт»;
+  // одинаковые причины за один день — в одну строку: «18.09 Петрова и Сидорова заявление».
+  notesOf(ym) {
+    const people = new Map(DB.data.people.map((p) => [p.id, p]));
+    const groups = new Map();
+    for (const m of DB.data.marks) {
+      if (!m.reason || !m.date.startsWith(ym) || !people.has(m.pid)) continue;
+      const k = `${m.date}|${m.reason}`;
+      if (!groups.has(k)) groups.set(k, { date: m.date, reason: m.reason, pids: [] });
+      groups.get(k).pids.push(m.pid);
+    }
+    const order = new Map(DB.data.people.map((p, i) => [p.id, i]));
+    const auto = [...groups.values()]
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((g) => {
+        const names = g.pids.sort((a, b) => order.get(a) - order.get(b)).map((id) => this.surname(people.get(id)));
+        const who = names.length > 1 ? `${names.slice(0, -1).join(', ')} и ${names.at(-1)}` : names[0];
+        return { text: `${Dates.dm(g.date)} ${who} ${g.reason}`, auto: true };
+      });
+    const free = DB.data.notes.filter((n) => n.month === ym).map((n) => ({ text: n.text, id: n.id }));
+    return [...auto, ...free];
+  },
+};

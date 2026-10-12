@@ -1,0 +1,44 @@
+# Напоминания мастеру в Telegram (скрипт — remind/remind.mjs).
+# Время в cron — UTC: 5:30 UTC = 8:30 в Беларуси, 17:30 UTC = 20:30. GitHub может запустить с опозданием на 10–20 минут.
+# Секреты (Settings → Secrets and variables → Actions): TG_TOKEN — токен бота, TG_CHAT — личный чат мастера
+# (номер показывает приложение: «Ещё» → Telegram → «Напоминания мне»).
+# Если в приложении поменяли график — поменять ANCHOR/CYCLE и здесь.
+name: Напоминания
+
+on:
+  schedule:
+    - cron: '30 5 * * *'
+    - cron: '30 17 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'test — прислать пробное сообщение сейчас'
+        default: test
+        type: choice
+        options: [test, auto]
+
+permissions:
+  actions: write # чтобы GitHub не выключил расписание через 60 дней без коммитов
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node remind/remind.mjs
+        env:
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHAT: ${{ secrets.TG_CHAT }}
+          ANCHOR: '2026-09-01'
+          CYCLE: 'ДДННВВВВ'
+          TZ_OFFSET: '3'
+          SHIFT_NAME: 'Смена 1'
+          APP_URL: 'https://muurd91.github.io/tabel-smeny/'
+          MODE: ${{ inputs.mode || 'auto' }}
+      # GitHub отключает расписание в репозитории без активности 60 дней — продлеваем при каждом запуске.
+      - run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/remind.yml/enable"
+        env:
+          GH_TOKEN: ${{ github.token }}
