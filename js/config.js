@@ -22,10 +22,10 @@ const CONFIG = {
   absenceReasons: ['заявление за свой счёт', 'прогул'],
   partialReasons: ['заявление'],
 
-  // Синхронизация с OneDrive (личный аккаунт Microsoft). clientId — та же регистрация в Microsoft Entra,
-  // что и у «Журнала производства»; адрес этого приложения добавлен в её Redirect URI.
+  // Синхронизация с OneDrive (личный аккаунт Microsoft). clientId — отдельная регистрация «Табель смены»
+  // в Microsoft Entra (только личные учётные записи, SPA, Redirect URI — адрес на GitHub Pages).
   onedrive: {
-    clientId: 'a6ed8be5-8fa0-404d-9ac4-5cde51b4041a',
+    clientId: 'ef930851-e655-4bbe-bf7e-14816370bd97',
     folder: 'Табель смены',
     file: 'tabel-smeny.json',
     pollSeconds: 45,
