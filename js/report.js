@@ -173,7 +173,7 @@ const Reports = (() => {
   async function share(ym, name, title) {
     const fs = await files(ym, name);
     if (navigator.canShare?.({ files: fs })) {
-      try { await navigator.share({ files: fs, title }); }
+      try { await navigator.share({ files: fs, title, text: summary(ym, title) }); }
       catch (e) { if (e.name === 'AbortError') return false; throw e; }
     } else fs.forEach((f) => downloadBlob(f, f.name));
     if (OneDrive.info().connected) upload(fs).catch(() => {}); // в OneDrive — то, что отправлено
@@ -181,10 +181,83 @@ const Reports = (() => {
   }
 
   // Отправка в группу Telegram.
+  // Табель (картинка + Excel), следом — сводка по пропускам отдельным сообщением
+  // (подпись к файлам ограничена 1024 символами, сообщение — 4096).
   async function sendTelegram(ym, name, caption) {
     const fs = await files(ym, name);
     await Telegram.sendFiles(fs, caption);
+    await Telegram.sendText(summary(ym, caption));
     if (OneDrive.info().connected) upload(fs).catch(() => {});
+  }
+
+  // ---------- Сводка по пропускам за месяц ----------
+  // «10–12, 17–18.09»: подряд идущие числа — диапазоном.
+  function fmtDays(list) {
+    const nums = [...new Set(list.map((d) => Number(d.slice(8))))].sort((a, b) => a - b);
+    const parts = [];
+    for (let i = 0; i < nums.length; i++) {
+      let j = i;
+      while (j + 1 < nums.length && nums[j + 1] === nums[j] + 1) j++;
+      const p2 = (n) => String(n).padStart(2, '0');
+      parts.push(j > i ? `${p2(nums[i])}–${p2(nums[j])}` : p2(nums[i]));
+      i = j;
+    }
+    return `${parts.join(', ')}.${list[0].slice(5, 7)}`;
+  }
+
+  const hrs = (n) => String(n).replace('.', ',');
+
+  function summary(ym, title) {
+    const people = Tabel.peopleOf(ym);
+    const map = Tabel.marksMap();
+    const days = Dates.monthDays(ym);
+    const sec = { sick: [], vac: [], absent: [], part: [], extra: [] };
+    const count = { sick: 0, vac: 0, absent: 0 };
+    let extraHours = 0;
+
+    for (const p of people) {
+      const by = { sick: [], vac: [], absent: new Map(), part: [], extra: [] };
+      for (const d of days) {
+        const m = map.get(Tabel.markId(d, p.id));
+        if (!m) continue;
+        const k = kindOf(m.v, d);
+        if (k === 'sick' || k === 'vac') by[k].push(d);
+        else if (k === 'absent') {
+          const r = m.reason || '';
+          if (!by.absent.has(r)) by.absent.set(r, []);
+          by.absent.get(r).push(d);
+        } else if (k === 'part') by.part.push(`${Dates.dm(d)}: ${hrs(m.v)} ч из ${Sched.hours(d)}${m.reason ? ` (${m.reason})` : ''}`);
+        else if (k === 'extra') {
+          by.extra.push(d);
+          extraHours += m.v - (Sched.hours(d) || 0);
+        }
+      }
+      const who = Tabel.shortName(p);
+      if (by.sick.length) { sec.sick.push(`• ${who} — ${fmtDays(by.sick)}`); count.sick += by.sick.length; }
+      if (by.vac.length) { sec.vac.push(`• ${who} — ${fmtDays(by.vac)}`); count.vac += by.vac.length; }
+      if (by.absent.size) {
+        const groups = [...by.absent.entries()].sort(([a], [b]) => (a ? 1 : 0) - (b ? 1 : 0));
+        sec.absent.push(`• ${who} — ${groups.map(([r, ds]) => `${fmtDays(ds)}${r ? ` (${r})` : ''}`).join('; ')}`);
+        count.absent += groups.reduce((s, [, ds]) => s + ds.length, 0);
+      }
+      if (by.part.length) sec.part.push(`• ${who} — ${by.part.join('; ')}`);
+      if (by.extra.length) {
+        const h = by.extra.reduce((s, d) => s + (map.get(Tabel.markId(d, p.id)).v - (Sched.hours(d) || 0)), 0);
+        sec.extra.push(`• ${who} — ${fmtDays(by.extra)} (+${hrs(h)} ч)`);
+      }
+    }
+
+    const smen = (n) => `${n} ${n % 10 === 1 && n % 100 !== 11 ? 'смена' : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? 'смены' : 'смен'}`;
+    const out = [`📋 ${title}`, ''];
+    const block = (head, lines) => { if (lines.length) out.push(head, ...lines, ''); };
+    block(`🤒 Больничный (${smen(count.sick)}):`, sec.sick);
+    block(`🏖 Отпуск (${smen(count.vac)}):`, sec.vac);
+    block(`🚫 Отсутствие (${smen(count.absent)}):`, sec.absent);
+    block('⏱ Неполные смены:', sec.part);
+    block(`➕ Сверх графика (+${hrs(extraHours)} ч):`, sec.extra);
+    if (out.length === 2) out.push('Пропусков нет — все отработали по графику 👍');
+    const text = out.join('\n').trim();
+    return text.length > 4000 ? `${text.slice(0, 3990)}\n…` : text;
   }
 
   let tgError = '';
@@ -256,5 +329,5 @@ const Reports = (() => {
   window.addEventListener('online', () => tick());
   document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
 
-  return { active, tick, share, sendTelegram, banner };
+  return { active, tick, share, sendTelegram, banner, summary };
 })();
