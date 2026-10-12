@@ -1,7 +1,7 @@
 // ================= Service worker: офлайн-оболочка приложения =================
 // Кэшируются только файлы приложения; данные — в localStorage и OneDrive.
 // При любом изменении файлов приложения поднимать VERSION — иначе телефон будет держать старую копию.
-const VERSION = 'v8';
+const VERSION = 'v9';
 const CACHE = `ts-shell-${VERSION}`;
 
 const SHELL = [

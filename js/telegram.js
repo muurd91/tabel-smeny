@@ -44,6 +44,12 @@ const Telegram = (() => {
     for (const u of ups) {
       const m = u.message || u.edited_message || u.my_chat_member || u.chat_member;
       const chat = m?.chat;
+      if (chat?.type === 'private') {
+        // Личный диалог с ботом — для пробы, потом можно сменить на общую группу
+        const who = [chat.first_name, chat.last_name].filter(Boolean).join(' ') || chat.username || 'вы';
+        chats.set(chat.id, { id: chat.id, title: `Личный чат: ${who}` });
+        continue;
+      }
       if (!chat || !['group', 'supergroup'].includes(chat.type)) continue;
       if (u.my_chat_member && ['left', 'kicked'].includes(u.my_chat_member.new_chat_member?.status)) { chats.delete(chat.id); continue; }
       chats.set(chat.id, { id: chat.id, title: chat.title || 'Группа' });

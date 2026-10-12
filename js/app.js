@@ -798,13 +798,13 @@ function telegramSetup() {
       <input class="input" id="tg-token" value="${esc(w.token)}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="123456789:AA…"></label>
     ${w.bot ? `<p>Бот найден: <b>@${esc(w.bot.username)}</b></p>
       <ol class="small" start="3" style="padding-left:20px;margin:0 0 8px">
-        <li>Добавьте бота в группу (в группе: участники → добавить → найдите @${esc(w.bot.username)}).</li>
+        <li>Добавьте бота в группу (в группе: участники → добавить → найдите @${esc(w.bot.username)}). Для пробы можно просто написать боту в личку — потом группу легко сменить.</li>
         <li>Нажмите «Найти группу».</li>
       </ol>
-      <button class="btn btn--block" data-find type="button" ${w.busy ? 'disabled' : ''}>Найти группу</button>` : `<button class="btn btn--primary btn--block" data-check type="button" ${w.busy ? 'disabled' : ''}>Проверить токен</button>`}
+      <button class="btn btn--block" data-find type="button" ${w.busy ? 'disabled' : ''}>Найти группу или чат</button>` : `<button class="btn btn--primary btn--block" data-check type="button" ${w.busy ? 'disabled' : ''}>Проверить токен</button>`}
     ${w.groups ? (w.groups.length
       ? `<div class="list-head">Куда отправлять</div><div class="list">${w.groups.map((g) => `<button class="person" data-chat="${esc(g.id)}" type="button"><span class="person__info"><span class="person__name">${esc(g.title)}</span></span></button>`).join('')}</div>`
-      : `<p class="small" style="color:var(--err)">Группа не найдена. Добавьте бота в группу (или, если он уже там, напишите в группе сообщение с упоминанием @${esc(w.bot.username)}) и нажмите «Найти группу» ещё раз.</p>`) : ''}
+      : `<p class="small" style="color:var(--err)">Чат не найден. Добавьте бота в группу или напишите ему в личку (если он уже в группе — напишите там сообщение с упоминанием @${esc(w.bot.username)}) и нажмите «Найти группу» ещё раз.</p>`) : ''}
     ${w.error ? `<p class="small" style="color:var(--err)">${esc(w.error)}</p>` : ''}
     <div class="sheet__actions"><button class="btn" value="cancel">Закрыть</button></div>`, (b) => {
     b.oninput = (e) => { if (e.target.id === 'tg-token') { w.token = e.target.value.trim(); } };
