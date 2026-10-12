@@ -264,3 +264,14 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .all { margin-top: 16px; }
 .all summary { cursor: pointer; padding: 10px 2px; color: var(--muted); font-weight: 600; font-size: 14px; }
 .all .list { margin-top: 4px; }
+
+/* ================= «Скоро не будет» ================= */
+.upcoming { border-left: 4px solid var(--warn); }
+.upcoming h2 { margin-bottom: 6px; }
+.upcoming__row {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 6px 0;
+  border: 0; border-top: 1px solid var(--border); background: none; text-align: left;
+}
+.upcoming__row:first-of-type { border-top: 0; }
+.upcoming__date { flex: none; min-width: 92px; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.upcoming__date.is-soon { color: var(--part); font-weight: 700; }

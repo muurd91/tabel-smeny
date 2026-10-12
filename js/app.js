@@ -148,6 +148,7 @@ function renderShift() {
     html += `<div class="summary"><span class="summary__main">На смене ${present} из ${people.length}</span>
       <span class="muted small">остальным стоит ${Sched.hoursOf(t)} ч по графику</span></div>`;
   }
+  html += upcomingHtml();
   html += quickForm(d, t, people, map);
 
   if (marked.length) {
@@ -205,12 +206,17 @@ function quickForm(d, t, people, map) {
         ${t !== 'В' ? `<label class="field grow" style="margin:0"><span class="field__label">Причина (в примечание)</span>
           <input class="input" id="qf-text" value="${esc(q.text || '')}" placeholder="например, заявление" autocomplete="off"></label>` : ''}
       </div>`;
-  } else if (r?.k === 'other') {
-    extra = `<label class="field"><span class="field__label">Причина (в примечание)</span>
-      <input class="input" id="qf-text" value="${esc(q.text || '')}" placeholder="что случилось" autocomplete="off"></label>`;
-  } else if (r?.v === 'Б' || r?.v === 'ОТ') {
-    extra = `<label class="field"><span class="field__label">По какое число (если известно)</span>
-      <input class="input" id="qf-until" type="date" min="${d}" value="${esc(q.until || d)}"></label>`;
+  }
+  // Заявление, отпуск, больничный — можно сразу на будущие дни и на несколько смен.
+  if (r && ['own', 'other', 'sick', 'vac'].includes(r.k)) {
+    const from = q.from || d;
+    extra += `${r.k === 'other' ? `<label class="field"><span class="field__label">Причина (в примечание)</span>
+      <input class="input" id="qf-text" value="${esc(q.text || '')}" placeholder="что случилось" autocomplete="off"></label>` : ''}
+      <div class="row" style="flex-wrap:nowrap">
+        <label class="field grow" style="margin:4px 0"><span class="field__label">С</span><input class="input" id="qf-from" type="date" value="${esc(from)}"></label>
+        <label class="field grow" style="margin:4px 0"><span class="field__label">По (включительно)</span><input class="input" id="qf-until" type="date" min="${esc(from)}" value="${esc(q.until && q.until > from ? q.until : from)}"></label>
+      </div>
+      <div class="small muted">${from > Dates.today() ? 'Будущая дата — бот напишет вам в личку, в «Скоро не будет» появится запись.' : 'Отметка встанет на все смены по графику в этом промежутке.'}</div>`;
   }
   const ready = q.pid && r;
   return `<div class="card qf">
@@ -228,14 +234,65 @@ function quickForm(d, t, people, map) {
 }
 
 // Отметка на дату; Б и ОТ — сразу на все смены по графику до until включительно.
+// Коды (Б, ОТ, «−») с until — на все смены по графику в промежутке. Возвращает отмеченные даты.
 function applyMark(pid, date, v, reason = '', until = date) {
+  const dates = [];
   DB.update(() => {
-    if ((v === 'Б' || v === 'ОТ') && until > date) {
+    if (typeof v === 'string' && v && until > date) {
       for (let d = date; d <= until; d = Dates.add(d, 1)) {
-        if (d === date || Sched.type(d) !== 'В') Tabel.setMark(d, pid, v);
+        if (d === date || Sched.type(d) !== 'В') { Tabel.setMark(d, pid, v, reason); dates.push(d); }
       }
-    } else Tabel.setMark(date, pid, v, reason);
+    } else { Tabel.setMark(date, pid, v, reason); dates.push(date); }
   });
+  return dates;
+}
+
+// Отсутствие на будущие дни (заявление, отпуск, больничный) — бот пишет мастеру в личку.
+const PLANNED = ['-', 'ОТ', 'Б'];
+async function notifyPlanned(p, dates, v, reason) {
+  const today = Dates.today();
+  const future = dates.filter((d) => d > today);
+  if (!future.length || !PLANNED.includes(v)) return;
+  if (!Telegram.meReady()) {
+    if (Telegram.ready()) toast('Чтобы бот писал о таком вам лично: «Ещё» → «Уведомления мне»');
+    return;
+  }
+  const kind = (d) => ({ Д: 'день', Н: 'ночь' }[Sched.type(d)] || 'выходной');
+  const when = future.map((d) => `${Dates.dm(d)} (${Dates.WD[Dates.wd(d)]}, ${kind(d)})`).join(', ');
+  const why = reason || CONFIG.codes[v]?.label.toLowerCase() || v;
+  const text = `📝 ${Tabel.shortName(p)}${p.position ? ` (${p.position})` : ''} — не будет ${when}.\nПричина: ${why}.`;
+  try { await Telegram.sendMe(text); }
+  catch (err) { toast(`Уведомление в Telegram не ушло: ${err.message}`); }
+}
+
+// Запланированные отсутствия на ближайшие 14 дней — блок «Скоро не будет».
+function upcomingHtml() {
+  const today = Dates.today();
+  const last = Dates.add(today, 14);
+  const people = new Map(DB.data.people.map((p) => [p.id, p]));
+  const list = DB.data.marks
+    .filter((m) => m.date > today && m.date <= last && PLANNED.includes(m.v) && people.has(m.pid))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  if (!list.length) return '';
+  // Подряд идущие дни одного человека с одной причиной — одной строкой: «15.10–20.10»
+  const rows = [];
+  for (const m of list) {
+    const key = `${m.pid}|${m.v}|${m.reason || ''}`;
+    const prev = rows.find((r) => r.key === key && Dates.num(m.date) - Dates.num(r.to) <= 4);
+    if (prev) prev.to = m.date; else rows.push({ key, from: m.date, to: m.date, m });
+  }
+  rows.sort((a, b) => a.from.localeCompare(b.from));
+  const tomorrow = Dates.add(today, 1);
+  return `<div class="card upcoming"><h2>Скоро не будет</h2>
+    ${rows.map((r) => {
+      const p = people.get(r.m.pid);
+      const start = r.from === tomorrow ? 'завтра' : `${Dates.WD[Dates.wd(r.from)]} ${Dates.dm(r.from)}`;
+      const dates = r.from === r.to ? start : `${r.from === tomorrow ? 'завтра' : Dates.dm(r.from)}–${Dates.dm(r.to)}`;
+      const why = r.m.reason || CONFIG.codes[r.m.v]?.label.toLowerCase();
+      return `<button class="upcoming__row" data-goto="${r.from}" type="button">
+        <span class="upcoming__date${r.from === tomorrow ? ' is-soon' : ''}">${esc(dates)}</span>
+        <span class="grow"><b>${esc(Tabel.shortName(p))}</b> · ${esc(why)}</span></button>`;
+    }).join('')}</div>`;
 }
 
 function saveQuick() {
@@ -252,20 +309,26 @@ function saveQuick() {
     if (!Number.isFinite(v) || v < 0 || v > 24) { toast('Укажите часы от 0 до 24'); return; }
   }
   if (r.k === 'part' || r.k === 'other') reason = (q.text || '').trim();
-  const until = (v === 'Б' || v === 'ОТ') && q.until > d ? q.until : d;
+  const ranged = ['own', 'other', 'sick', 'vac'].includes(r.k);
+  const from = ranged && q.from ? q.from : d;
+  const until = ranged && q.until > from ? q.until : from;
   UI.qf = {};
-  applyMark(p.id, d, v, reason, until);
-  toast(`${Tabel.surname(p)}: ${r.label.toLowerCase()}${until > d ? ` по ${Dates.dm(until)}` : ''}`);
+  const dates = applyMark(p.id, from, v, reason, until);
+  const when = until > from ? ` ${Dates.dm(from)}–${Dates.dm(until)}` : from !== d ? ` ${Dates.dm(from)}` : '';
+  toast(`${Tabel.surname(p)}: ${r.label.toLowerCase()}${when}`);
+  notifyPlanned(p, dates, v, reason);
 }
 
 $('#view-shift').addEventListener('click', (e) => {
   const act = e.target.closest('[data-act]')?.dataset.act;
-  if (act === 'prev') { UI.date = Dates.add(UI.date, -1); UI.qf.reason = ''; render(); return; }
-  if (act === 'next') { UI.date = Dates.add(UI.date, 1); UI.qf.reason = ''; render(); return; }
+  if (act === 'prev') { UI.date = Dates.add(UI.date, -1); UI.qf.reason = ''; UI.qf.from = UI.qf.until = undefined; render(); return; }
+  if (act === 'next') { UI.date = Dates.add(UI.date, 1); UI.qf.reason = ''; UI.qf.from = UI.qf.until = undefined; render(); return; }
   if (act === 'today') { UI.date = Dates.today(); render(); return; }
   if (act === 'import') { $('#file-xlsx').click(); return; }
   if (act === 'people') { go('people'); addPerson(); return; }
   if (act === 'qf-save') { saveQuick(); return; }
+  const go2 = e.target.closest('[data-goto]')?.dataset.goto;
+  if (go2) { UI.date = go2; UI.qf.from = UI.qf.until = undefined; render(); window.scrollTo(0, 0); return; }
   const qr = e.target.closest('[data-qr]')?.dataset.qr;
   if (qr) { UI.qf.reason = qr; UI.qf.text = ''; UI.qf.hours = undefined; render(); return; }
   const clear = e.target.closest('[data-clear]')?.dataset.clear;
@@ -282,8 +345,9 @@ $('#view-shift').addEventListener('click', (e) => {
   try { input?.showPicker?.(); } catch {}
 });
 $('#view-shift').addEventListener('change', (e) => {
-  if (e.target.id === 'shift-date' && e.target.value) { UI.date = e.target.value; UI.qf.reason = ''; render(); }
+  if (e.target.id === 'shift-date' && e.target.value) { UI.date = e.target.value; UI.qf.reason = ''; UI.qf.from = UI.qf.until = undefined; render(); }
   else if (e.target.id === 'qf-person') { UI.qf.pid = e.target.value; render(); }
+  else if (e.target.id === 'qf-from' && e.target.value) { UI.qf.from = e.target.value; render(); } // обновить «по» и подсказку
 });
 $('#view-shift').addEventListener('input', (e) => {
   if (e.target.id === 'qf-hours') UI.qf.hours = e.target.value;
@@ -396,7 +460,8 @@ function openEditor(pid, date) {
       if (!Number.isFinite(v) || v < 0 || v > 24) { toast('Укажите часы от 0 до 24'); return; }
     }
     const why = (sel === 'part' || sel === '-') ? reason.trim() : '';
-    applyMark(pid, date, v, why, (sel === 'Б' || sel === 'ОТ') ? until : date);
+    const dates = applyMark(pid, date, v, why, (sel === 'Б' || sel === 'ОТ') ? until : date);
+    notifyPlanned(p, dates, v, why);
     sheet.close();
     toast(`${Tabel.surname(p)}: ${o.label.toLowerCase()}${(sel === 'Б' || sel === 'ОТ') && until > date ? ` по ${Dates.dm(until)}` : ''}`);
   };
@@ -779,7 +844,7 @@ function telegramCard() {
   }
   return `<p>Группа: <b>${esc(tg.chatTitle || tg.chatId)}</b>${tg.botName ? `<br><span class="small muted">Бот @${esc(tg.botName)}</span>` : ''}</p>
     <label class="check"><input type="checkbox" id="tg-auto" ${tg.auto !== false ? 'checked' : ''}><span>Отправлять автоматически 16-го и 1-го числа</span></label>
-    <button class="btn btn--block" style="margin-bottom:8px" data-act="tg-me" type="button">Напоминания мне</button>
+    <button class="btn btn--block" style="margin-bottom:8px" data-act="tg-me" type="button">Уведомления мне${tg.meId ? " ✓" : ""}</button>
     <div class="row"><button class="btn grow" data-act="tg-test" type="button">Пробное сообщение</button>
       <button class="btn" data-act="tg-setup" type="button">Сменить</button>
       <button class="btn btn--danger" data-act="tg-off" type="button">Отключить</button></div>`;
@@ -819,7 +884,10 @@ function telegramSetup() {
         if (!id) return;
         const g = w.groups.find((x) => String(x.id) === id);
         DB.update((d) => {
-          d.settings.telegram = { token: w.token, botName: w.bot.username, chatId: g.id, chatTitle: g.title, auto: true, since: Dates.today() };
+          // Личный чат (id > 0) сразу годится и для личных уведомлений; выбранный раньше — сохраняем
+          const old = d.settings.telegram || {};
+          const meId = old.token === w.token && old.meId ? old.meId : g.id > 0 ? g.id : undefined;
+          d.settings.telegram = { token: w.token, botName: w.bot.username, chatId: g.id, chatTitle: g.title, auto: true, since: Dates.today(), ...(meId ? { meId } : {}) };
         });
         try {
           await Telegram.sendText(`Бот подключён к табелю «${DB.data.settings.shiftName}». Сюда будут приходить табели 16-го и 1-го числа.`);
@@ -832,34 +900,52 @@ function telegramSetup() {
   draw();
 }
 
-// Номер личного чата с ботом — для напоминаний по расписанию (секрет TG_CHAT в GitHub).
+// Личный чат мастера с ботом: уведомления о заявлениях на будущие дни (приложение)
+// и напоминания по расписанию (тот же номер — секрет TG_CHAT в GitHub).
 function telegramMe() {
   const bot = Telegram.cfg().botName;
   const w = { chats: null, error: '', busy: false };
-  const draw = () => openSheet(`<h3>Напоминания мне</h3>
-    <p class="sheet__sub">Бот будет писать вам лично в начале смены, 16-го и 1-го числа.</p>
+  const draw = () => {
+    const me = Telegram.cfg().meId;
+    openSheet(`<h3>Уведомления мне</h3>
+    <p class="sheet__sub">Бот будет писать вам лично: кого не будет в будущие дни (заявления, отпуск, больничный), а также напоминания о сменах.</p>
     <ol class="small" style="padding-left:20px;margin:0 0 10px">
       <li>Откройте в Telegram чат с ботом${bot ? ` <b>@${esc(bot)}</b>` : ''} и нажмите <b>«Старт»</b> (или отправьте ему любое сообщение).</li>
-      <li>Нажмите «Найти мой чат» и скопируйте номер — его нужно один раз вписать в настройки GitHub (покажу, куда).</li>
+      <li>Нажмите «Найти мой чат» и выберите его.</li>
     </ol>
     <button class="btn btn--primary btn--block" data-find type="button" ${w.busy ? 'disabled' : ''}>Найти мой чат</button>
-    ${w.chats ? (w.chats.length ? w.chats.map((c) => `<div class="card" style="margin:10px 0 0"><div class="row"><span class="grow">${esc(c.title)}<br><b style="font-size:20px">${esc(c.id)}</b></span>
-        <button class="btn" data-copy="${esc(c.id)}" type="button">Копировать</button></div></div>`).join('')
+    ${w.chats ? (w.chats.length ? w.chats.map((c) => `<div class="card" style="margin:10px 0 0">
+        <div>${esc(c.title)}${String(me) === String(c.id) ? ' · <b>выбран ✓</b>' : ''}</div>
+        <div class="small muted">Номер для GitHub (TG_CHAT): <b>${esc(c.id)}</b></div>
+        <div class="row" style="margin-top:8px">
+          ${String(me) === String(c.id) ? '' : `<button class="btn btn--primary grow" data-pick="${esc(c.id)}" type="button">Присылать сюда</button>`}
+          <button class="btn grow" data-copy="${esc(c.id)}" type="button">Копировать номер</button></div></div>`).join('')
       : '<p class="small" style="color:var(--err)">Не нашёл. Напишите боту любое сообщение и нажмите ещё раз.</p>') : ''}
     ${w.error ? `<p class="small" style="color:var(--err)">${esc(w.error)}</p>` : ''}
     <div class="sheet__actions"><button class="btn" value="cancel">Закрыть</button></div>`, (b) => {
-    b.onclick = async (e) => {
-      const copy = e.target.closest('[data-copy]')?.dataset.copy;
-      if (copy) {
-        try { await navigator.clipboard.writeText(copy); toast('Скопировано'); } catch { toast(copy); }
-        return;
-      }
-      if (!e.target.closest('[data-find]')) return;
-      w.busy = true; w.error = ''; draw();
-      try { w.chats = await Telegram.findPrivate(); } catch (err) { w.error = err.message; }
-      w.busy = false; draw();
-    };
-  });
+      b.onclick = async (e) => {
+        const copy = e.target.closest('[data-copy]')?.dataset.copy;
+        if (copy) {
+          try { await navigator.clipboard.writeText(copy); toast('Скопировано'); } catch { toast(copy); }
+          return;
+        }
+        const pick = e.target.closest('[data-pick]')?.dataset.pick;
+        if (pick) {
+          DB.update((d) => { d.settings.telegram = { ...d.settings.telegram, meId: Number(pick) }; });
+          try {
+            await Telegram.sendMe('Сюда буду присылать, кого не будет в ближайшие дни, и напоминания о сменах.');
+            toast('Готово: уведомления — вам лично');
+          } catch (err) { w.error = err.message; }
+          draw();
+          return;
+        }
+        if (!e.target.closest('[data-find]')) return;
+        w.busy = true; w.error = ''; draw();
+        try { w.chats = await Telegram.findPrivate(); } catch (err) { w.error = err.message; }
+        w.busy = false; draw();
+      };
+    });
+  };
   draw();
 }
 

@@ -85,6 +85,10 @@ const Telegram = (() => {
 
   const sendText = (text) => toChat('sendMessage', (chat_id) => form({ chat_id, text }));
 
+  // Личные уведомления мастеру (не в группу): заявления на будущие дни и т.п.
+  const meReady = () => !!(cfg().token && cfg().meId);
+  const sendMe = (text) => call('sendMessage', form({ chat_id: cfg().meId, text }));
+
   // Файлы одним сообщением-альбомом; документом, а не фото — иначе Telegram сожмёт картинку и цифры не прочитать.
   function sendFiles(files, caption) {
     return toChat('sendMediaGroup', (chat_id) => {
@@ -96,5 +100,5 @@ const Telegram = (() => {
     });
   }
 
-  return { ready, cfg, getMe, findGroups, findPrivate, sendText, sendFiles };
+  return { ready, meReady, cfg, getMe, findGroups, findPrivate, sendText, sendMe, sendFiles };
 })();
