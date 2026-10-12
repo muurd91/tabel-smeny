@@ -11,8 +11,9 @@ const {
 } = process.env;
 
 if (!TG_TOKEN || !TG_CHAT) {
-  console.error('Не заданы секреты TG_TOKEN и TG_CHAT (Settings → Secrets and variables → Actions).');
-  process.exit(1);
+  // Пока бот не настроен — не ошибка (иначе GitHub дважды в день шлёт письма о сбое).
+  console.log('::warning::Напоминания не настроены: добавьте секреты TG_TOKEN и TG_CHAT (Settings → Secrets and variables → Actions).');
+  process.exit(0);
 }
 
 // Местное время мастера (по умолчанию UTC+3 — Беларусь, без перехода на летнее время)
