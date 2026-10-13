@@ -100,11 +100,11 @@ for (const doc of docs) {
                 : st.dismissed ? 'скрыто в приложении' : '';
   if (why) { console.log(`${r.id}: пропуск — ${why}`); continue; }
 
-  const caption = MODE === 'test' ? `🧪 Проверка отправки по расписанию. ${r.caption}` : r.caption;
+  const prefix = MODE === 'test' ? '🧪 Проверка отправки по расписанию. ' : '';
   try {
-    sandbox.__args = [r.ym, r.name, caption];
+    sandbox.__args = [r.ym, r.name, r.caption, prefix];
     await run('Reports.sendTelegram(...__args)');
-    console.log(`${r.id}: отправлено в «${tg.chatTitle || tg.chatId}»`);
+    console.log(`${r.id}: отправлено в «${tg.chatTitle || tg.chatId}»${run('Telegram.fullReady()') ? ` (только картинка) и «${tg.fullChatTitle || tg.fullChatId}» (полностью)` : ''}`);
   } catch (e) {
     failed = true;
     console.log(`::error::${r.id}: ${e.message}`);

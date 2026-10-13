@@ -160,12 +160,27 @@ const Reports = (() => {
     return true;
   }
 
-  // Отправка в группу Telegram: табель (картинка + Excel), следом — примечания отдельным сообщением
-  // (подпись к файлам ограничена 1024 символами, сообщение — 4096).
-  async function sendTelegram(ym, name, caption) {
+  // Отправка в Telegram. Если выбран чат для полного табеля — группе только картинка с подписью
+  // «за какой месяц и период», а в тот чат картинка + Excel и следом примечания. Иначе всё — в группу.
+  // (Подпись к файлам ограничена 1024 символами, поэтому примечания — отдельным сообщением.)
+  // prefix — пометка в начале подписей (проверка из планировщика).
+  async function sendTelegram(ym, name, caption, prefix = '') {
     const fs = await files(ym, name);
-    await Telegram.sendFiles(fs, caption);
-    await Telegram.sendText(summary(ym, caption));
+    if (Telegram.fullReady()) {
+      await Telegram.sendDoc(fs[0], prefix + periodCaption(ym));
+      await Telegram.sendFiles(fs, prefix + caption, 'fullChatId');
+      await Telegram.sendText(summary(ym, prefix + caption), 'fullChatId');
+    } else {
+      await Telegram.sendFiles(fs, prefix + caption);
+      await Telegram.sendText(summary(ym, prefix + caption));
+    }
+  }
+
+  // «Смена 1 — табель за октябрь 2026, с 01 по 16.10» (месяц ещё идёт) или «… за сентябрь 2026» (весь месяц).
+  function periodCaption(ym) {
+    const today = Dates.today();
+    const head = `${DB.data.settings.shiftName} — табель за ${Dates.monthTitle(ym).toLowerCase()}`;
+    return Dates.ym(today) === ym && today < Dates.monthDays(ym).at(-1) ? `${head}, с 01 по ${Dates.dm(today)}` : head;
   }
 
   // ---------- Сообщение под табелем ----------

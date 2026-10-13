@@ -74,31 +74,44 @@ const Telegram = (() => {
   }
 
   // Повтор с новым id, если группа превратилась в супергруппу.
-  async function toChat(method, build) {
-    try { return await call(method, build(cfg().chatId)); }
+  // key — какой чат из настроек: chatId (группа) или fullChatId (полный табель).
+  async function toChat(method, build, key = 'chatId') {
+    try { return await call(method, build(cfg()[key])); }
     catch (e) {
       if (!e.migrate) throw e;
-      DB.update((d) => { d.settings.telegram = { ...d.settings.telegram, chatId: e.migrate }; });
+      DB.update((d) => { d.settings.telegram = { ...d.settings.telegram, [key]: e.migrate }; });
       return call(method, build(e.migrate));
     }
   }
 
-  const sendText = (text) => toChat('sendMessage', (chat_id) => form({ chat_id, text }));
+  const sendText = (text, key) => toChat('sendMessage', (chat_id) => form({ chat_id, text }), key);
+
+  // Второй чат для полного табеля (картинка, Excel, примечания); группе тогда — только картинка.
+  const fullReady = () => !!(cfg().token && cfg().fullChatId && String(cfg().fullChatId) !== String(cfg().chatId));
+
+  // Один файл с подписью (картинка табеля — документом, чтобы Telegram её не сжимал).
+  function sendDoc(file, caption, key) {
+    return toChat('sendDocument', (chat_id) => {
+      const fd = form({ chat_id, caption });
+      fd.append('document', file, file.name);
+      return fd;
+    }, key);
+  }
 
   // Личные уведомления мастеру (не в группу): заявления на будущие дни и т.п.
   const meReady = () => !!(cfg().token && cfg().meId);
   const sendMe = (text) => call('sendMessage', form({ chat_id: cfg().meId, text }));
 
   // Файлы одним сообщением-альбомом; документом, а не фото — иначе Telegram сожмёт картинку и цифры не прочитать.
-  function sendFiles(files, caption) {
+  function sendFiles(files, caption, key) {
     return toChat('sendMediaGroup', (chat_id) => {
       const fd = form({ chat_id });
       const media = files.map((f, i) => ({ type: 'document', media: `attach://f${i}`, ...(i === files.length - 1 ? { caption } : {}) }));
       fd.append('media', JSON.stringify(media));
       files.forEach((f, i) => fd.append(`f${i}`, f, f.name));
       return fd;
-    });
+    }, key);
   }
 
-  return { ready, meReady, cfg, getMe, findGroups, findPrivate, sendText, sendMe, sendFiles };
+  return { ready, meReady, fullReady, cfg, getMe, findGroups, findPrivate, sendText, sendMe, sendDoc, sendFiles };
 })();

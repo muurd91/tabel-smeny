@@ -559,7 +559,7 @@ $('#view-tabel').addEventListener('click', async (e) => {
     if (!Telegram.ready()) { viaShare(); return; }
     openSheet(`<h3>Отправить табель</h3><p class="sheet__sub">${esc(name)} · картинка и Excel</p>
       <div class="row" style="flex-direction:column;align-items:stretch">
-        <button class="btn btn--primary" data-tg type="button">В группу «${esc(Telegram.cfg().chatTitle || 'Telegram')}»</button>
+        <button class="btn btn--primary" data-tg type="button">В Telegram: «${esc(Telegram.cfg().chatTitle || "группа")}»${Telegram.fullReady() ? ` + «${esc(Telegram.cfg().fullChatTitle)}»` : ""}</button>
         <button class="btn" data-share type="button">${ICON.share} Через «Поделиться»</button>
       </div>
       <div class="sheet__actions"><button class="btn" value="cancel">Отмена</button></div>`, (b) => {
@@ -871,12 +871,59 @@ function telegramCard() {
     return `<p class="small muted">Бот сам отправит картинку и Excel в группу 16-го (табель на 16-е) и 1-го (итоговый за месяц) — при первом открытии приложения в эти дни.</p>
       <button class="btn btn--primary btn--block" data-act="tg-setup" type="button">Подключить Telegram</button>`;
   }
-  return `<p>Группа: <b>${esc(tg.chatTitle || tg.chatId)}</b>${tg.botName ? `<br><span class="small muted">Бот @${esc(tg.botName)}</span>` : ''}</p>
+  const full = Telegram.fullReady();
+  return `<p>${full ? 'Группа (только картинка табеля)' : 'Группа'}: <b>${esc(tg.chatTitle || tg.chatId)}</b>${tg.botName ? `<br><span class="small muted">Бот @${esc(tg.botName)}</span>` : ''}</p>
+    <p>Полный табель (картинка, Excel, примечания): ${full ? `<b>${esc(tg.fullChatTitle || tg.fullChatId)}</b>` : '<span class="muted">не выбран — всё уходит в группу</span>'}</p>
+    <button class="btn btn--block" style="margin-bottom:8px" data-act="tg-full" type="button">${full ? 'Сменить чат для полного табеля' : 'Выбрать чат для полного табеля'}</button>
     <label class="check"><input type="checkbox" id="tg-auto" ${tg.auto !== false ? 'checked' : ''}><span>Отправлять автоматически 16-го и 1-го числа</span></label>
     <button class="btn btn--block" style="margin-bottom:8px" data-act="tg-me" type="button">Уведомления мне${tg.meId ? " ✓" : ""}</button>
     <div class="row"><button class="btn grow" data-act="tg-test" type="button">Пробное сообщение</button>
       <button class="btn" data-act="tg-setup" type="button">Сменить</button>
       <button class="btn btn--danger" data-act="tg-off" type="button">Отключить</button></div>`;
+}
+
+// Второй чат — для полного табеля (картинка, Excel, примечания). Группе тогда уходит только картинка.
+function telegramFull() {
+  const tg = Telegram.cfg();
+  const w = { chats: null, busy: false, error: '' };
+  const draw = () => openSheet(`<h3>Чат для полного табеля</h3>
+    <p class="sheet__sub">Сюда — картинка, Excel и примечания. В группу «${esc(tg.chatTitle || tg.chatId)}» — только картинка с подписью за какой месяц и период.</p>
+    <ol class="small" style="padding-left:20px;margin:0 0 10px">
+      <li>Если это другая группа — добавьте в неё бота${tg.botName ? ` <b>@${esc(tg.botName)}</b>` : ''}. Если ваш личный чат — напишите боту любое сообщение.</li>
+      <li>Нажмите «Найти чаты» и выберите нужный.</li>
+    </ol>
+    <button class="btn btn--primary btn--block" data-find type="button" ${w.busy ? 'disabled' : ''}>Найти чаты</button>
+    ${w.chats ? (w.chats.filter((c) => String(c.id) !== String(tg.chatId)).length
+      ? `<div class="list" style="margin-top:10px">${w.chats.filter((c) => String(c.id) !== String(tg.chatId)).map((c) => `<button class="person" data-chat="${esc(c.id)}" type="button"><span class="person__info"><span class="person__name">${esc(c.title)}</span></span>${String(c.id) === String(tg.fullChatId) ? '<span class="small">выбран ✓</span>' : ''}</button>`).join('')}</div>`
+      : '<p class="small" style="color:var(--err)">Других чатов не нашёл. Напишите боту (или в группе с упоминанием бота) и нажмите ещё раз.</p>') : ''}
+    ${w.error ? `<p class="small" style="color:var(--err)">${esc(w.error)}</p>` : ''}
+    ${tg.fullChatId ? '<button class="btn btn--danger btn--block" style="margin-top:12px" data-clear type="button">Не нужен — всё снова в группу</button>' : ''}
+    <div class="sheet__actions"><button class="btn" value="cancel">Закрыть</button></div>`, (b) => {
+    b.onclick = async (e) => {
+      if (e.target.closest('[data-clear]')) {
+        DB.update((d) => { const t = { ...d.settings.telegram }; delete t.fullChatId; delete t.fullChatTitle; d.settings.telegram = t; });
+        sheet.close();
+        toast('Полный табель — снова в группу');
+        return;
+      }
+      const id = e.target.closest('[data-chat]')?.dataset.chat;
+      if (id) {
+        const c = w.chats.find((x) => String(x.id) === id);
+        DB.update((d) => { d.settings.telegram = { ...d.settings.telegram, fullChatId: c.id, fullChatTitle: c.title }; });
+        try {
+          await Telegram.sendText('Сюда будет приходить полный табель: картинка, Excel и примечания.', 'fullChatId');
+          sheet.close();
+          toast(`Полный табель — в «${c.title}»`);
+        } catch (err) { w.error = err.message; draw(); }
+        return;
+      }
+      if (!e.target.closest('[data-find]')) return;
+      w.busy = true; w.error = ''; draw();
+      try { w.chats = await Telegram.findGroups(tg.token); } catch (err) { w.error = err.message; }
+      w.busy = false; draw();
+    };
+  });
+  draw();
 }
 
 // Мастер подключения: токен бота → проверка → поиск группы → выбор.
@@ -985,6 +1032,7 @@ $('#view-more').addEventListener('change', (e) => {
 $('#view-more').addEventListener('click', async (e) => {
   const act = e.target.closest('[data-act]')?.dataset.act;
   if (act === 'tg-setup') telegramSetup();
+  else if (act === 'tg-full') telegramFull();
   else if (act === 'tg-me') telegramMe();
   else if (act === 'tg-test') {
     try { await Telegram.sendText('Проверка связи: табель смены на месте.'); toast('Отправлено'); } catch (err) { toast(err.message); }
