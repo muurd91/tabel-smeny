@@ -1,18 +1,40 @@
 // ================= Напоминания мастеру в Telegram =================
 // Запускается планировщиком GitHub (.github/workflows/remind.yml) дважды в день.
-// Утром: если сегодня дневная смена — «отметь отсутствующих»; 16-го и 1-го — «уходит табель».
+// Утром: если сегодня дневная смена — «отметь отсутствующих»; 16-го и 1-го — «в 10:00 уйдёт табель».
 // Вечером: если сегодня ночная смена — «отметь отсутствующих».
-// Табеля и имён здесь нет: только график, токен бота и личный чат мастера (секреты репозитория).
+// К напоминанию о смене — кто сегодня не выйдет и кого не будет на следующей смене (больничный, отпуск, заявления).
+//
+// Данные — из Firestore (секрет FIREBASE_SA): график, бот и личный чат мастера берутся из настроек приложения.
+// Без FIREBASE_SA — по-старому: график из ANCHOR/CYCLE ниже, бот и чат из секретов TG_TOKEN и TG_CHAT, без списка отсутствующих.
 
-const {
-  TG_TOKEN, TG_CHAT,
+let {
+  TG_TOKEN, TG_CHAT, FIREBASE_SA,
   ANCHOR = '2026-09-01', CYCLE = 'ДДННВВВВ', TZ_OFFSET = '3',
   APP_URL = '', SHIFT_NAME = 'Смена 1', MODE = 'auto',
 } = process.env;
 
+// ---------- Табель из Firestore ----------
+let data = null;
+if (FIREBASE_SA) {
+  const { initializeApp, cert } = await import('firebase-admin/app');
+  const { getFirestore } = await import('firebase-admin/firestore');
+  initializeApp({ credential: cert(JSON.parse(FIREBASE_SA)) });
+  const doc = (await getFirestore().collectionGroup('apps').get()).docs.find((d) => d.id === 'tabel');
+  if (doc) {
+    data = JSON.parse(doc.get('json'));
+    const s = data.settings || {};
+    const tg = s.telegram || {};
+    ANCHOR = s.anchor || ANCHOR;
+    CYCLE = s.cycle || CYCLE;
+    SHIFT_NAME = s.shiftName || SHIFT_NAME;
+    TG_TOKEN = tg.token || TG_TOKEN;
+    TG_CHAT = tg.meId || TG_CHAT;
+  }
+}
+
 if (!TG_TOKEN || !TG_CHAT) {
   // Пока бот не настроен — не ошибка (иначе GitHub дважды в день шлёт письма о сбое).
-  console.log('::warning::Напоминания не настроены: добавьте секреты TG_TOKEN и TG_CHAT (Settings → Secrets and variables → Actions).');
+  console.log('::warning::Напоминания не настроены: в приложении подключите Telegram и нажмите «Уведомления мне» (или добавьте секреты TG_TOKEN и TG_CHAT).');
   process.exit(0);
 }
 
@@ -23,22 +45,61 @@ const hour = local.getUTCHours();
 const day = Number(iso.slice(8));
 
 const dayNum = (s) => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d) / 864e5; };
+const isoOf = (n) => new Date(n * 864e5).toISOString().slice(0, 10);
 const n = CYCLE.length;
-const type = CYCLE[(((dayNum(iso) - dayNum(ANCHOR)) % n) + n) % n]; // Д | Н | В
+const typeOf = (d) => CYCLE[(((dayNum(d) - dayNum(ANCHOR)) % n) + n) % n]; // Д | Н | В
+const type = typeOf(iso);
 
 const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
-const dm = `${iso.slice(8)}.${iso.slice(5, 7)}`;
+const dmOf = (d) => `${d.slice(8)}.${d.slice(5, 7)}`;
+const dm = dmOf(iso);
 const link = APP_URL ? `\n${APP_URL}` : '';
+
+// ---------- Кого не будет ----------
+const CODES = { 'Б': 'больничный', 'ОТ': 'отпуск', '-': 'отсутствие' };
+const people = new Map((data?.people || []).map((p) => [p.id, p]));
+const shortName = (p) => {
+  const [f, i, o] = (p?.name || '').trim().split(/\s+/);
+  return [f, i ? `${i[0]}.` : '', o ? `${o[0]}.` : ''].filter(Boolean).join(' ');
+};
+function absent(date) {
+  return (data?.marks || [])
+    .filter((m) => m.date === date && CODES[m.v] && people.has(m.pid))
+    .map((m) => `• ${shortName(people.get(m.pid))} — ${m.reason || CODES[m.v]}`);
+}
+// Следующая смена после сегодняшней — через выходные, если они между
+function nextShift(from) {
+  for (let k = 1; k <= n; k++) {
+    const d = isoOf(dayNum(from) + k);
+    if (typeOf(d) !== 'В') return d;
+  }
+  return null;
+}
+function shiftMessage(icon, kind) {
+  const lines = [`${icon} ${SHIFT_NAME}: ${kind} смена ${dm}. Отметь, кого нет.`];
+  if (data) {
+    const today = absent(iso);
+    if (today.length) lines.push('', 'Сегодня не будет:', ...today);
+    const next = nextShift(iso);
+    const later = next ? absent(next) : [];
+    if (later.length) {
+      const when = dayNum(next) - dayNum(iso) === 1 ? 'Завтра' : 'На следующей смене';
+      lines.push('', `${when} (${dmOf(next)}, ${typeOf(next) === 'Д' ? 'день' : 'ночь'}) не будет:`, ...later);
+    }
+  }
+  return lines.join('\n') + link;
+}
 
 const messages = [];
 if (MODE === 'test') {
-  messages.push(`🔔 Проверка напоминаний: работают. Сегодня ${dm} у смены — ${type === 'Д' ? 'дневная' : type === 'Н' ? 'ночная' : 'выходной'}.${link}`);
+  messages.push(`🔔 Проверка напоминаний: работают. Сегодня ${dm} у смены — ${type === 'Д' ? 'дневная' : type === 'Н' ? 'ночная' : 'выходной'}.`);
+  if (type !== 'В') messages.push(shiftMessage(type === 'Д' ? '☀️' : '🌙', type === 'Д' ? 'дневная' : 'ночная'));
 } else if (hour < 14) {
-  if (type === 'Д') messages.push(`☀️ ${SHIFT_NAME}: дневная смена ${dm}. Отметь, кого нет.${link}`);
+  if (type === 'Д') messages.push(shiftMessage('☀️', 'дневная'));
   if (day === 16) messages.push(`📋 Сегодня 16-е — в 10:00 табель за ${MONTHS[local.getUTCMonth()]} сам уйдёт в группу. Проверь отметки до этого времени.${link}`);
   if (day === 1) messages.push(`📋 Сегодня 1-е — в 10:00 итоговый табель за ${MONTHS[(local.getUTCMonth() + 11) % 12]} сам уйдёт в группу. Проверь последние отметки до этого времени.${link}`);
 } else if (type === 'Н') {
-  messages.push(`🌙 ${SHIFT_NAME}: ночная смена ${dm}. Отметь, кого нет.${link}`);
+  messages.push(shiftMessage('🌙', 'ночная'));
 }
 
 for (const text of messages) {
@@ -50,4 +111,4 @@ for (const text of messages) {
   const j = await res.json();
   if (!j.ok) { console.error('Telegram:', j.description); process.exit(1); }
 }
-console.log(`${iso} ${String(hour).padStart(2, '0')}:xx, смена ${type}: отправлено ${messages.length}`);
+console.log(`${iso} ${String(hour).padStart(2, '0')}:xx, смена ${type}${data ? ', данные из Firestore' : ''}: отправлено ${messages.length}`);

@@ -1,8 +1,8 @@
 # Напоминания мастеру в Telegram (скрипт — remind/remind.mjs).
 # Время в cron — UTC: 5:30 UTC = 8:30 в Беларуси, 17:30 UTC = 20:30. GitHub может запустить с опозданием на 10–20 минут.
-# Секреты (Settings → Secrets and variables → Actions): TG_TOKEN — токен бота, TG_CHAT — личный чат мастера
-# (номер показывает приложение: «Ещё» → Telegram → «Напоминания мне»).
-# Если в приложении поменяли график — поменять ANCHOR/CYCLE и здесь.
+# Данные берутся из Firestore (секрет FIREBASE_SA — тот же ключ, что у «Табель в группу»): график, бот и личный чат
+# мастера — из настроек приложения («Ещё» → Telegram → «Уведомления мне»), плюс кто сегодня и на следующей смене не выйдет.
+# Без FIREBASE_SA — запасной вариант: секреты TG_TOKEN и TG_CHAT, график из ANCHOR/CYCLE ниже.
 name: Напоминания
 
 on:
@@ -27,9 +27,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+      - run: npm install --no-save --no-audit --no-fund firebase-admin@14
       - run: node remind/remind.mjs
         env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SA }}
           TG_TOKEN: ${{ secrets.TG_TOKEN }}
           TG_CHAT: ${{ secrets.TG_CHAT }}
           ANCHOR: '2026-09-01'
