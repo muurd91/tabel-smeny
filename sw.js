@@ -1,7 +1,7 @@
 // ================= Service worker: офлайн-оболочка приложения =================
 // Кэшируются файлы приложения и библиотеки Firebase (gstatic.com); данные — в localStorage и Firestore.
 // При любом изменении файлов приложения поднимать VERSION — иначе телефон будет держать старую копию.
-const VERSION = 'v14';
+const VERSION = 'v15';
 const CACHE = `ts-shell-${VERSION}`;
 
 const SHELL = [

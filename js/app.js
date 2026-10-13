@@ -900,6 +900,7 @@ function telegramFull() {
     ${tg.fullChatId ? '<button class="btn btn--danger btn--block" style="margin-top:12px" data-clear type="button">Не нужен — всё снова в группу</button>' : ''}
     <div class="sheet__actions"><button class="btn" value="cancel">Закрыть</button></div>`, (b) => {
     b.onclick = async (e) => {
+      if (w.busy) return;
       if (e.target.closest('[data-clear]')) {
         DB.update((d) => { const t = { ...d.settings.telegram }; delete t.fullChatId; delete t.fullChatTitle; d.settings.telegram = t; });
         sheet.close();
@@ -910,11 +911,14 @@ function telegramFull() {
       if (id) {
         const c = w.chats.find((x) => String(x.id) === id);
         DB.update((d) => { d.settings.telegram = { ...d.settings.telegram, fullChatId: c.id, fullChatTitle: c.title }; });
+        w.busy = true;
         try {
           await Telegram.sendText('Сюда будет приходить полный табель: картинка, Excel и примечания.', 'fullChatId');
           sheet.close();
           toast(`Полный табель — в «${c.title}»`);
-        } catch (err) { w.error = err.message; draw(); }
+        } catch (err) { w.error = err.message; }
+        w.busy = false;
+        if (sheet.open) draw();
         return;
       }
       if (!e.target.closest('[data-find]')) return;
@@ -944,12 +948,13 @@ function telegramSetup() {
       </ol>
       <button class="btn btn--block" data-find type="button" ${w.busy ? 'disabled' : ''}>Найти группу или чат</button>` : `<button class="btn btn--primary btn--block" data-check type="button" ${w.busy ? 'disabled' : ''}>Проверить токен</button>`}
     ${w.groups ? (w.groups.length
-      ? `<div class="list-head">Куда отправлять</div><div class="list">${w.groups.map((g) => `<button class="person" data-chat="${esc(g.id)}" type="button"><span class="person__info"><span class="person__name">${esc(g.title)}</span></span></button>`).join('')}</div>`
+      ? `<div class="list-head">Куда отправлять</div><div class="list">${w.groups.map((g) => `<button class="person" data-chat="${esc(g.id)}" type="button" ${w.busy ? 'disabled' : ''}><span class="person__info"><span class="person__name">${esc(g.title)}</span></span></button>`).join('')}</div>`
       : `<p class="small" style="color:var(--err)">Чат не найден. Добавьте бота в группу или напишите ему в личку (если он уже в группе — напишите там сообщение с упоминанием @${esc(w.bot.username)}) и нажмите «Найти группу» ещё раз.</p>`) : ''}
     ${w.error ? `<p class="small" style="color:var(--err)">${esc(w.error)}</p>` : ''}
     <div class="sheet__actions"><button class="btn" value="cancel">Закрыть</button></div>`, (b) => {
     b.oninput = (e) => { if (e.target.id === 'tg-token') { w.token = e.target.value.trim(); } };
     b.onclick = async (e) => {
+      if (w.busy) return; // уже идёт запрос — повторное нажатие не отправляет второй раз
       const run = async (fn) => { w.busy = true; w.error = ''; draw(); try { await fn(); } catch (err) { w.error = err.message; } w.busy = false; draw(); };
       if (e.target.closest('[data-check]')) {
         run(async () => { w.bot = await Telegram.getMe(w.token); });
@@ -959,17 +964,25 @@ function telegramSetup() {
         const id = e.target.closest('[data-chat]')?.dataset.chat;
         if (!id) return;
         const g = w.groups.find((x) => String(x.id) === id);
+        w.busy = true;
+        draw();
         DB.update((d) => {
-          // Личный чат (id > 0) сразу годится и для личных уведомлений; выбранный раньше — сохраняем
-          const old = d.settings.telegram || {};
-          const meId = old.token === w.token && old.meId ? old.meId : g.id > 0 ? g.id : undefined;
-          d.settings.telegram = { token: w.token, botName: w.bot.username, chatId: g.id, chatTitle: g.title, auto: true, since: Dates.today(), ...(meId ? { meId } : {}) };
+          // Тот же бот (в т.ч. после «Отключить») — сохраняем личный чат и чат полного табеля;
+          // новый бот: личный чат (id > 0) сразу годится и для личных уведомлений
+          const old = d.settings.telegram || d.settings.telegramPrev || {};
+          const same = old.token === w.token;
+          const meId = same && old.meId ? old.meId : g.id > 0 ? g.id : undefined;
+          const full = same && old.fullChatId ? { fullChatId: old.fullChatId, fullChatTitle: old.fullChatTitle } : {};
+          d.settings.telegram = { token: w.token, botName: w.bot.username, chatId: g.id, chatTitle: g.title, auto: true, since: Dates.today(), ...(meId ? { meId } : {}), ...full };
+          delete d.settings.telegramPrev;
         });
         try {
           await Telegram.sendText(`Бот подключён к табелю «${DB.data.settings.shiftName}». Сюда будут приходить табели 16-го и 1-го числа.`);
           sheet.close();
           toast(`Подключено: «${g.title}»`);
-        } catch (err) { w.error = err.message; draw(); }
+        } catch (err) { w.error = err.message; }
+        w.busy = false;
+        if (sheet.open) draw();
       }
     };
   });
@@ -1000,6 +1013,7 @@ function telegramMe() {
     ${w.error ? `<p class="small" style="color:var(--err)">${esc(w.error)}</p>` : ''}
     <div class="sheet__actions"><button class="btn" value="cancel">Закрыть</button></div>`, (b) => {
       b.onclick = async (e) => {
+        if (w.busy) return;
         const copy = e.target.closest('[data-copy]')?.dataset.copy;
         if (copy) {
           try { await navigator.clipboard.writeText(copy); toast('Скопировано'); } catch { toast(copy); }
@@ -1008,10 +1022,12 @@ function telegramMe() {
         const pick = e.target.closest('[data-pick]')?.dataset.pick;
         if (pick) {
           DB.update((d) => { d.settings.telegram = { ...d.settings.telegram, meId: Number(pick) }; });
+          w.busy = true;
           try {
             await Telegram.sendMe('Сюда буду присылать, кого не будет в ближайшие дни, и напоминания о сменах.');
             toast('Готово: уведомления — вам лично');
           } catch (err) { w.error = err.message; }
+          w.busy = false;
           draw();
           return;
         }
@@ -1035,9 +1051,13 @@ $('#view-more').addEventListener('click', async (e) => {
   else if (act === 'tg-full') telegramFull();
   else if (act === 'tg-me') telegramMe();
   else if (act === 'tg-test') {
+    const btn = e.target.closest('[data-act]');
+    if (btn.disabled) return;
+    btn.disabled = true; // не отправлять дважды при двойном нажатии
     try { await Telegram.sendText('Проверка связи: табель смены на месте.'); toast('Отправлено'); } catch (err) { toast(err.message); }
+    btn.disabled = false;
   } else if (act === 'tg-off') {
-    if (confirm('Отключить отправку в Telegram?')) DB.update((d) => { delete d.settings.telegram; });
+    if (confirm('Отключить отправку в Telegram?')) DB.update((d) => { d.settings.telegramPrev = d.settings.telegram; delete d.settings.telegram; }); // прежние чаты вернутся при подключении того же бота
   }
   if (act === 'signin') Cloud.signInGoogle();
   else if (act === 'signin-email') signInEmailSheet();
