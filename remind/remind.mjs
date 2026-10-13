@@ -35,8 +35,8 @@ if (MODE === 'test') {
   messages.push(`🔔 Проверка напоминаний: работают. Сегодня ${dm} у смены — ${type === 'Д' ? 'дневная' : type === 'Н' ? 'ночная' : 'выходной'}.${link}`);
 } else if (hour < 14) {
   if (type === 'Д') messages.push(`☀️ ${SHIFT_NAME}: дневная смена ${dm}. Отметь, кого нет.${link}`);
-  if (day === 16) messages.push(`📋 Сегодня 16-е — табель за ${MONTHS[local.getUTCMonth()]} уходит в группу. Открой приложение.${link}`);
-  if (day === 1) messages.push(`📋 Сегодня 1-е — итоговый табель за ${MONTHS[(local.getUTCMonth() + 11) % 12]} уходит в группу. Проверь последние отметки и открой приложение.${link}`);
+  if (day === 16) messages.push(`📋 Сегодня 16-е — в 10:00 табель за ${MONTHS[local.getUTCMonth()]} сам уйдёт в группу. Проверь отметки до этого времени.${link}`);
+  if (day === 1) messages.push(`📋 Сегодня 1-е — в 10:00 итоговый табель за ${MONTHS[(local.getUTCMonth() + 11) % 12]} сам уйдёт в группу. Проверь последние отметки до этого времени.${link}`);
 } else if (type === 'Н') {
   messages.push(`🌙 ${SHIFT_NAME}: ночная смена ${dm}. Отметь, кого нет.${link}`);
 }

@@ -1,6 +1,6 @@
 // ================= Интерфейс =================
 // Четыре экрана: «Смена» (отметить, кто не вышел, на выбранную дату), «Табель» (месяц целиком,
-// выгрузка в Excel), «Люди» (состав смены), «Ещё» (OneDrive, график, копии данных).
+// выгрузка в Excel), «Люди» (состав смены), «Ещё» (облако, график, Telegram, копии данных).
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -163,7 +163,7 @@ function renderShift() {
 }
 
 // ---------- Быстрая отметка: работник + причина ----------
-// Состояние формы живёт между перерисовками (данные могут обновиться из OneDrive).
+// Состояние формы живёт между перерисовками (данные могут обновиться из облака).
 UI.qf = {};
 UI.showAll = false;
 
@@ -789,26 +789,29 @@ async function importXlsx(file, year) {
 function renderMore() {
   const el = $('#view-more');
   const s = DB.data.settings;
-  const od = OneDrive.info();
+  const od = Cloud.info();
+  const st = DB.saveState;
   const fmt = (iso) => (iso ? new Date(iso).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '—');
 
   let cloud;
   if (!od.available) {
-    cloud = `<p class="small muted">Синхронизация работает, когда приложение открыто с сайта (https). Сейчас данные хранятся только на этом устройстве.</p>`;
+    cloud = `<p class="small muted">Облако работает, когда приложение открыто с сайта (https). Сейчас данные хранятся только на этом устройстве.</p>`;
   } else if (od.connected) {
+    const stText = { saved: 'всё сохранено в облаке', syncing: 'отправляю изменения…', offline: 'нет сети — изменения уйдут, когда она появится', cloudError: 'ошибка' }[st.state] || '';
     cloud = `<p>Вход: <b>${esc(od.account || 'выполнен')}</b></p>
-      <p class="small muted">Файл: OneDrive / ${esc(od.path)}<br>Последняя синхронизация: ${esc(fmt(od.lastSync))}${od.pending ? `<br>Ждут отправки: ${od.pending}` : ''}</p>
+      <p class="small muted">Сейчас: ${esc(stText)}${od.lastSync ? `<br>Последняя сверка: ${esc(fmt(od.lastSync))}` : ''}</p>
       ${od.error ? `<p class="small" style="color:var(--err)">${esc(od.error)}</p>` : ''}
-      <div class="row"><button class="btn grow" data-act="sync" type="button">Синхронизировать</button><button class="btn" data-act="signout" type="button">Отключить</button></div>`;
+      <button class="btn btn--block" data-act="signout" type="button">Выйти</button>`;
   } else {
-    cloud = `<p class="small muted">${od.needAuth ? 'Вход истёк — войдите снова, изменения сохранены на телефоне и уйдут после входа.' : 'Табель хранится в вашем OneDrive: не пропадёт при смене телефона, его видно с компьютера.'}</p>
+    cloud = `<p class="small muted">Табель хранится в облаке Firebase: не пропадёт при смене телефона, а табель 16-го и 1-го уйдёт в группу, даже если приложение не открывать. Войти нужно один раз.</p>
       ${od.error ? `<p class="small" style="color:var(--err)">${esc(od.error)}</p>` : ''}
-      <button class="btn btn--primary btn--block" data-act="signin" type="button">Войти в OneDrive</button>`;
+      <button class="btn btn--primary btn--block" data-act="signin" type="button">Войти через Google</button>
+      <button class="link" style="margin-top:8px" data-act="signin-email" type="button">Войти по почте и паролю</button>`;
   }
 
   const next = Array.from({ length: 8 }, (_, i) => Dates.add(Dates.today(), i));
   el.innerHTML = `
-    <div class="card"><h2>OneDrive</h2>${cloud}</div>
+    <div class="card"><h2>Облако</h2>${cloud}</div>
 
     <div class="card"><h2>Telegram</h2>${telegramCard()}</div>
 
@@ -833,6 +836,32 @@ function renderMore() {
       </div>
     </div>
     <p class="hint" style="text-align:center">Табель смены · версия ${APP_VERSION}</p>`;
+}
+
+// Запасной вход в облако — по почте и паролю (если вход через Google на телефоне не открывается).
+function signInEmailSheet() {
+  const w = { email: '', pass: '', create: false, busy: false, error: '' };
+  const draw = () => openSheet(`<h3>Вход по почте</h3>
+    <p class="sheet__sub">Любая ваша почта и пароль от 6 символов. В первый раз отметьте «Создать вход».</p>
+    <label class="field"><span class="field__label">Почта</span><input class="input" id="em-email" type="email" autocomplete="username" value="${esc(w.email)}"></label>
+    <label class="field"><span class="field__label">Пароль</span><input class="input" id="em-pass" type="password" autocomplete="${w.create ? 'new-password' : 'current-password'}" value="${esc(w.pass)}"></label>
+    <label class="check"><input type="checkbox" id="em-create" ${w.create ? 'checked' : ''}><span>Создать вход (первый раз)</span></label>
+    ${w.error ? `<p class="small" style="color:var(--err)">${esc(w.error)}</p>` : ''}
+    <div class="sheet__actions"><button class="btn" value="cancel">Отмена</button><button class="btn btn--primary" data-save type="button" ${w.busy ? 'disabled' : ''}>Войти</button></div>`, (b) => {
+    b.oninput = (e) => {
+      if (e.target.id === 'em-email') w.email = e.target.value.trim();
+      if (e.target.id === 'em-pass') w.pass = e.target.value;
+    };
+    b.onchange = (e) => { if (e.target.id === 'em-create') { w.create = e.target.checked; draw(); } };
+    b.onclick = async (e) => {
+      if (!e.target.closest('[data-save]')) return;
+      w.busy = true; w.error = ''; draw();
+      try { await Cloud.signInEmail(w.email, w.pass, w.create); sheet.close(); toast('Вход выполнен'); return; }
+      catch (err) { w.error = err.message; }
+      w.busy = false; draw();
+    };
+  });
+  draw();
 }
 
 // ---------- Telegram ----------
@@ -962,9 +991,9 @@ $('#view-more').addEventListener('click', async (e) => {
   } else if (act === 'tg-off') {
     if (confirm('Отключить отправку в Telegram?')) DB.update((d) => { delete d.settings.telegram; });
   }
-  if (act === 'signin') OneDrive.signIn();
-  else if (act === 'signout') { if (confirm('Отключить OneDrive? Данные останутся на телефоне.')) OneDrive.signOut(); }
-  else if (act === 'sync') OneDrive.syncNow();
+  if (act === 'signin') Cloud.signInGoogle();
+  else if (act === 'signin-email') signInEmailSheet();
+  else if (act === 'signout') { if (confirm('Выйти из облака? Данные останутся на телефоне, но перестанут сохраняться в облако.')) Cloud.signOut(); }
   else if (act === 'import') $('#file-xlsx').click();
   else if (act === 'backup') DB.exportFile();
   else if (act === 'restore') $('#file-json').click();
@@ -1016,7 +1045,7 @@ function render() {
 function renderSync() {
   const st = DB.saveState;
   const text = {
-    saved: st.cloud ? 'OneDrive' : 'На телефоне', local: 'На телефоне', auth: 'Войти', syncing: 'Синхронизация…',
+    saved: st.cloud ? 'В облаке' : 'На телефоне', local: 'На телефоне', auth: 'Войти', syncing: 'Сохраняю…',
     offline: 'Нет сети', cloudError: 'Ошибка', error: 'Ошибка памяти',
   }[st.state] || '';
   $('#sync').dataset.state = st.state;
@@ -1030,7 +1059,7 @@ $('#nav').addEventListener('click', (e) => {
 $('#sync').addEventListener('click', () => go('more'));
 
 DB.onChange(() => render());
-OneDrive.onChange(() => { renderSync(); if (UI.view === 'more') renderMore(); Reports.tick(); });
+Cloud.onChange(() => { renderSync(); if (UI.view === 'more') renderMore(); Reports.tick(); });
 
 // Новый день — переключиться на сегодня, если пользователь не листал даты
 let lastToday = Dates.today();
@@ -1045,7 +1074,7 @@ const hashDate = location.hash.match(/^#d=(\d{4}-\d{2}-\d{2})$/)?.[1];
 if (hashDate) { UI.date = hashDate; UI.month = Dates.ym(hashDate); }
 
 render();
-OneDrive.init();
+Cloud.init();
 Reports.tick();
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {

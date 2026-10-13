@@ -1,9 +1,8 @@
 // ================= Снимки табеля: 16-го и 1-го числа =================
-// С 16-го числа — табель текущего месяца «на 16-е» (весь месяц: прошедшие дни по отметкам, остальные по графику);
+// С 16-го числа — табель текущего месяца «на 16-е» (прошедшие дни; будущие пока пустые);
 // с 1-го по 15-е — итоговый табель прошлого месяца.
-// Фоновых задач у веб-приложения нет, поэтому снимок делается при первом открытии приложения в эти дни:
-// картинка и Excel сами сохраняются в OneDrive (Табель смены/Табели/), а на экране появляется плашка
-// «Отправить» — отправка через меню «Поделиться» требует нажатия, сам Android её не разрешает.
+// Отправка в группу Telegram: планировщик GitHub в CONFIG.sendHour 16-го и 1-го (remind/send.mjs), а если он не сработал —
+// приложение при открытии. Кнопка «Отправить» на плашке — вручную, в Telegram или через «Поделиться».
 
 const Snapshot = (() => {
   const C = {
@@ -151,24 +150,6 @@ const Reports = (() => {
     return [new File([png], `${name}.png`, { type: 'image/png' }), new File([xlsx], `${name}.xlsx`, { type: xlsx.type })];
   }
 
-  async function upload(fs) {
-    for (const f of fs) await OneDrive.saveFile(f.name, f);
-  }
-
-  // Сохранить снимок в OneDrive при первом открытии в нужные дни. Ждём, пока данные сверятся с облаком,
-  // чтобы не сохранить устаревший табель и не повторять то, что уже сделал другой телефон.
-  let busy = false;
-  async function autoSave() {
-    const r = active();
-    if (busy || !relevant(r) || state(r.id).savedAt) return;
-    if (!OneDrive.info().connected || DB.saveState.state !== 'saved') return;
-    busy = true;
-    try {
-      await upload(await files(r.ym, r.name));
-      mark(r.id, { savedAt: new Date().toISOString() });
-    } catch {} finally { busy = false; }
-  }
-
   // Отправка через меню «Поделиться» (на компьютере — скачивание). true — отправлено.
   async function share(ym, name, title) {
     const fs = await files(ym, name);
@@ -176,18 +157,15 @@ const Reports = (() => {
       try { await navigator.share({ files: fs, title, text: summary(ym, title) }); }
       catch (e) { if (e.name === 'AbortError') return false; throw e; }
     } else fs.forEach((f) => downloadBlob(f, f.name));
-    if (OneDrive.info().connected) upload(fs).catch(() => {}); // в OneDrive — то, что отправлено
     return true;
   }
 
-  // Отправка в группу Telegram.
-  // Табель (картинка + Excel), следом — примечания отдельным сообщением
+  // Отправка в группу Telegram: табель (картинка + Excel), следом — примечания отдельным сообщением
   // (подпись к файлам ограничена 1024 символами, сообщение — 4096).
   async function sendTelegram(ym, name, caption) {
     const fs = await files(ym, name);
     await Telegram.sendFiles(fs, caption);
     await Telegram.sendText(summary(ym, caption));
-    if (OneDrive.info().connected) upload(fs).catch(() => {});
   }
 
   // ---------- Сообщение под табелем ----------
@@ -216,7 +194,8 @@ const Reports = (() => {
   }
 
   // Автоотправка в Telegram при первом открытии 16-го и 1-го. Только для снимков после подключения бота
-  // (чтобы при настройке не улетел старый табель) и после сверки с OneDrive (чтобы второй телефон не отправил повторно).
+  // (чтобы при настройке не улетел старый табель), не раньше часа отправки (CONFIG.sendHour — в это время его шлёт планировщик GitHub,
+  // приложение лишь подстраховывает) и после сверки с облаком (чтобы не отправить повторно то, что уже ушло).
   function autoSend() {
     const r = active();
     const tg = Telegram.cfg();
@@ -224,13 +203,13 @@ const Reports = (() => {
     if (r.start < (tg.since || '')) return;
     const s = state(r.id);
     if (s.tgSentAt || s.sentAt || s.dismissed) return;
-    if (OneDrive.info().connected && DB.saveState.state !== 'saved') return;
+    if (new Date().getHours() < (CONFIG.sendHour ?? 0)) return;
+    if (Cloud.info().connected && DB.saveState.state !== 'saved') return;
     sendActiveTelegram({ auto: true });
   }
 
   // Вызывается при запуске, после синхронизации, при появлении сети и возврате в приложение.
   function tick() {
-    autoSave();
     autoSend();
   }
 
@@ -246,7 +225,7 @@ const Reports = (() => {
     if (!relevant(r) || s.sentAt || s.dismissed) return '';
     const tg = Telegram.ready();
     const sub = tgError ? `<span class="small" style="color:var(--err)">${esc(tgError)}</span>`
-      : `<span class="small muted">Картинка и Excel${s.savedAt ? ' · сохранены в OneDrive' : ''}</span>`;
+      : `<span class="small muted">Картинка и Excel${Telegram.ready() && Telegram.cfg().auto !== false ? ` · уйдёт сам в ${CONFIG.sendHour}:00` : ''}</span>`;
     return `<div class="report">
       <div class="grow"><b>${esc(r.title)}</b><br>${sub}</div>
       ${tg ? `<button class="btn btn--primary" data-act="report-tg" type="button">${tgError ? 'Повторить' : 'В Telegram'}</button>

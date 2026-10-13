@@ -1,0 +1,47 @@
+# Табель в группу Telegram 16-го и 1-го числа (скрипт — remind/send.mjs).
+# 7:00 UTC = 10:00 по Минску (CONFIG.sendHour в приложении). GitHub может запустить с опозданием на 10–20 минут.
+# Секрет FIREBASE_SA — ключ сервисного аккаунта Firebase (JSON целиком):
+#   консоль Firebase → настройки проекта → Service accounts → Generate new private key.
+# Бот и группа берутся из настроек приложения (в Firestore), отдельный токен здесь не нужен.
+name: Табель в группу
+
+on:
+  schedule:
+    - cron: '0 7 1,16 * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'test — отправить текущий снимок сейчас с пометкой «проверка»; selftest — только проверить отрисовку'
+        default: test
+        type: choice
+        options: [test, auto, selftest]
+
+permissions:
+  contents: read
+  actions: write # чтобы GitHub не выключил расписание через 60 дней без коммитов
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: |
+          sudo apt-get install -y -qq fonts-dejavu-core > /dev/null || true
+          npm install --no-save --no-audit --no-fund firebase-admin@14 @napi-rs/canvas@1
+      - run: node remind/send.mjs
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SA }}
+          MODE: ${{ inputs.mode || 'auto' }}
+          TZ: Europe/Minsk
+      # Только для selftest: вымышленные данные (настоящий табель в артефакты не попадает — репозиторий публичный)
+      - uses: actions/upload-artifact@v4
+        if: ${{ inputs.mode == 'selftest' }}
+        with:
+          name: selftest
+          path: out/
+      - run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/send.yml/enable"
+        env:
+          GH_TOKEN: ${{ github.token }}

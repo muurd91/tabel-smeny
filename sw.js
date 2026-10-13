@@ -1,7 +1,7 @@
 // ================= Service worker: офлайн-оболочка приложения =================
-// Кэшируются только файлы приложения; данные — в localStorage и OneDrive.
+// Кэшируются файлы приложения и библиотеки Firebase (gstatic.com); данные — в localStorage и Firestore.
 // При любом изменении файлов приложения поднимать VERSION — иначе телефон будет держать старую копию.
-const VERSION = 'v12';
+const VERSION = 'v13';
 const CACHE = `ts-shell-${VERSION}`;
 
 const SHELL = [
@@ -11,7 +11,7 @@ const SHELL = [
   'css/style.css',
   'js/config.js',
   'js/data.js',
-  'js/onedrive.js',
+  'js/cloud.js',
   'js/xlsx.js',
   'js/telegram.js',
   'js/report.js',
@@ -41,7 +41,21 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;
-  if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+
+  // Библиотеки Firebase: адрес с номером версии не меняется — из кэша, а нет — загрузить и сохранить.
+  if (url.hostname === 'www.gstatic.com' && url.pathname.startsWith('/firebasejs/')) {
+    e.respondWith(
+      caches.match(req).then((cached) => cached || fetch(req).then((res) => {
+        const copy = res.clone();
+        if (res.ok) caches.open(CACHE).then((c) => c.put(req, copy));
+        return res;
+      })),
+    );
+    return;
+  }
+  if (url.origin !== location.origin) return;
 
   // Страница — «сначала сеть»: обновления приходят сразу, без сети открывается сохранённая копия.
   if (req.mode === 'navigate') {

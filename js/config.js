@@ -22,12 +22,19 @@ const CONFIG = {
   absenceReasons: ['заявление за свой счёт', 'прогул'],
   partialReasons: ['заявление'],
 
-  // Синхронизация с OneDrive (личный аккаунт Microsoft). clientId — отдельная регистрация «Табель смены»
-  // в Microsoft Entra (только личные учётные записи, SPA, Redirect URI — адрес на GitHub Pages).
-  onedrive: {
-    clientId: 'ef930851-e655-4bbe-bf7e-14816370bd97',
-    folder: 'Табель смены',
-    file: 'tabel-smeny.json',
-    pollSeconds: 45,
+  // Облако — Firebase (проект proizvodstvo, общий с будущим «Журналом»). Конфиг не секрет:
+  // данные закрыты правилами Firestore — каждый видит только свой users/<uid>.
+  firebase: {
+    apiKey: 'AIzaSyC5vxVP5eH-_8C2q3UEB9JhiJYslD7Zxgk',
+    authDomain: 'proizvodstvo-8934e.firebaseapp.com',
+    projectId: 'proizvodstvo-8934e',
+    storageBucket: 'proizvodstvo-8934e.firebasestorage.app',
+    messagingSenderId: '502899625438',
+    appId: '1:502899625438:web:3cabbf6696fb712b5c614f',
+    sdk: '13.0.0',
   },
+
+  // Табель 16-го и 1-го уходит в группу в это время (по местному): планировщиком GitHub,
+  // а если он не сработал — приложением при открытии, но не раньше этого часа.
+  sendHour: 10,
 };
