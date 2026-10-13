@@ -20,7 +20,12 @@ if (FIREBASE_SA) {
   const { initializeApp, cert } = await import('firebase-admin/app');
   const { getFirestore } = await import('firebase-admin/firestore');
   initializeApp({ credential: cert(JSON.parse(FIREBASE_SA)) });
-  const doc = (await getFirestore().collectionGroup('apps').get()).docs.find((d) => d.id === 'tabel');
+  // Только табель владельца (uid из js/config.js): в приложение может войти кто угодно со своим Google
+  const fs = await import('node:fs');
+  const owner = (fs.readFileSync(new URL('../js/config.js', import.meta.url), 'utf8').match(/owner:\s*'([^']*)'/) || [])[1] || '';
+  if (!owner) console.log('::warning::В js/config.js не задан firebase.owner — берётся первый табель в базе.');
+  const doc = (await getFirestore().collectionGroup('apps').get()).docs
+    .find((d) => d.id === 'tabel' && (!owner || d.ref.parent.parent?.id === owner));
   if (doc) {
     data = JSON.parse(doc.get('json'));
     const s = data.settings || {};

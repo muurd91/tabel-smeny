@@ -30,7 +30,7 @@ jobs:
           node-version: 22
       - run: |
           sudo apt-get install -y -qq fonts-dejavu-core > /dev/null || true
-          npm install --no-save --no-audit --no-fund firebase-admin@14 @napi-rs/canvas@1
+          npm install --no-save --no-audit --no-fund firebase-admin@14.5.0 @napi-rs/canvas@1.0.11
       - run: node remind/send.mjs
         env:
           FIREBASE_SA: ${{ secrets.FIREBASE_SA }}

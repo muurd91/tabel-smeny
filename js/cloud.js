@@ -255,6 +255,8 @@ const Cloud = (() => {
     available,
     connected: !!user,
     account: user?.email || user?.displayName || '',
+    uid: user?.uid || '',
+    isOwner: !!user && (!cfg.owner || user.uid === cfg.owner),
     lastSync,
     error: lastError,
   });

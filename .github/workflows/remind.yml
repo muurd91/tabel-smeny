@@ -30,7 +30,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install --no-save --no-audit --no-fund firebase-admin@14
+      - run: npm install --no-save --no-audit --no-fund firebase-admin@14.5.0
       - run: node remind/remind.mjs
         env:
           FIREBASE_SA: ${{ secrets.FIREBASE_SA }}

@@ -803,6 +803,8 @@ function renderMore() {
     cloud = `<p>Вход: <b>${esc(od.account || 'выполнен')}</b></p>
       <p class="small muted">Сейчас: ${esc(stText)}${od.lastSync ? `<br>Последняя сверка: ${esc(fmt(od.lastSync))}` : ''}</p>
       ${od.error ? `<p class="small" style="color:var(--err)">${esc(od.error)}</p>` : ''}
+      ${od.isOwner ? '' : '<p class="small" style="color:var(--err)">Это не аккаунт владельца табеля: автоотправка и напоминания по расписанию работают только с аккаунтом владельца.</p>'}
+      <p class="small muted">ID аккаунта: <code>${esc(od.uid)}</code> <button class="link" data-act="copy-uid" type="button">копировать</button></p>
       <button class="btn btn--block" data-act="signout" type="button">Выйти</button>`;
   } else {
     cloud = `<p class="small muted">Табель хранится в облаке Firebase: не пропадёт при смене телефона, а табель 16-го и 1-го уйдёт в группу, даже если приложение не открывать. Войти нужно один раз.</p>
@@ -1063,6 +1065,10 @@ $('#view-more').addEventListener('click', async (e) => {
   }
   if (act === 'signin') Cloud.signInGoogle();
   else if (act === 'signin-email') signInEmailSheet();
+  else if (act === 'copy-uid') {
+    const uid = Cloud.info().uid;
+    try { await navigator.clipboard.writeText(uid); toast('ID скопирован'); } catch { toast(uid); }
+  }
   else if (act === 'signout') { if (confirm('Выйти из облака? Данные останутся на телефоне, но перестанут сохраняться в облако.')) Cloud.signOut(); }
   else if (act === 'import') $('#file-xlsx').click();
   else if (act === 'backup') DB.exportFile();

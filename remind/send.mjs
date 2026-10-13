@@ -80,8 +80,13 @@ const { getFirestore } = await import('firebase-admin/firestore');
 initializeApp({ credential: cert(JSON.parse(FIREBASE_SA)) });
 const db = getFirestore();
 
-const docs = (await db.collectionGroup('apps').get()).docs.filter((d) => d.id === 'tabel');
-if (!docs.length) { console.log('::warning::В Firestore нет табеля — войдите в приложении в облако.'); process.exit(0); }
+// Только табель владельца (users/<owner>/apps/tabel): в приложение может войти кто угодно со своим Google,
+// и его папка не должна попасть в рассылку.
+const owner = run('CONFIG.firebase.owner || ""');
+if (!owner) console.log('::warning::В js/config.js не задан firebase.owner — берутся все табели в базе.');
+const docs = (await db.collectionGroup('apps').get()).docs
+  .filter((d) => d.id === 'tabel' && (!owner || d.ref.parent.parent?.id === owner));
+if (!docs.length) { console.log('::warning::В Firestore нет табеля владельца — войдите в приложении в облако.'); process.exit(0); }
 
 const day = Number(run('Dates.today()').slice(8));
 let failed = false;
@@ -104,7 +109,8 @@ for (const doc of docs) {
   try {
     sandbox.__args = [r.ym, r.name, r.caption, prefix];
     await run('Reports.sendTelegram(...__args)');
-    console.log(`${r.id}: отправлено в «${tg.chatTitle || tg.chatId}»${run('Telegram.fullReady()') ? ` (только картинка) и «${tg.fullChatTitle || tg.fullChatId}» (полностью)` : ''}`);
+    // Журнал запусков публичный (репозиторий открытый) — без названий чатов и имён
+    console.log(`${r.id}: отправлено ${run('Telegram.fullReady()') ? 'в группу (картинка) и во второй чат (полностью)' : 'в группу'}`);
   } catch (e) {
     failed = true;
     console.log(`::error::${r.id}: ${e.message}`);

@@ -6,12 +6,12 @@
   <meta name="theme-color" content="#F4F5F7" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0F1115" media="(prefers-color-scheme: dark)">
   <!-- Версия приложения: та же, что VERSION в sw.js и ?v= у файлов ниже (меняет tools/bump.sh) -->
-  <meta name="app-version" content="18">
+  <meta name="app-version" content="19">
   <title>Табель смены</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/style.css?v=18">
+  <link rel="stylesheet" href="css/style.css?v=19">
 </head>
 <body>
   <header class="top">
@@ -47,13 +47,13 @@
   <input type="file" id="file-json" accept=".json,application/json" hidden>
 
   <!-- ?v= — чтобы новая страница никогда не взяла из кэша старые скрипты (иначе после обновления — пустой экран) -->
-  <script src="js/config.js?v=18"></script>
-  <script src="js/data.js?v=18"></script>
-  <script src="js/cloud.js?v=18"></script>
-  <script src="js/xlsx.js?v=18"></script>
-  <script src="js/telegram.js?v=18"></script>
-  <script src="js/report.js?v=18"></script>
-  <script src="js/app.js?v=18"></script>
+  <script src="js/config.js?v=19"></script>
+  <script src="js/data.js?v=19"></script>
+  <script src="js/cloud.js?v=19"></script>
+  <script src="js/xlsx.js?v=19"></script>
+  <script src="js/telegram.js?v=19"></script>
+  <script src="js/report.js?v=19"></script>
+  <script src="js/app.js?v=19"></script>
   <script>
     // app.js в конце ставит window.appStarted; если его нет — что-то не загрузилось или упало при запуске.
     if (!window.appStarted) document.getElementById('app-error').hidden = false;
