@@ -61,7 +61,9 @@ function dateTitle(d, withYear) {
 }
 const typeLabel = (t) => {
   const s = DB.data.settings;
-  return t === 'Д' ? `Дневная · ${s.dayHours} ч` : t === 'Н' ? `Ночная · ${s.nightHours} ч` : 'Выходной у смены';
+  // «Дневная 7:30–19:30 · 12 ч»
+  const label = (name, time, hours) => [name, time, `· ${hours} ч`].filter(Boolean).join(' ');
+  return t === 'Д' ? label('Дневная', s.dayTime, s.dayHours) : t === 'Н' ? label('Ночная', s.nightTime, s.nightHours) : 'Выходной у смены';
 };
 
 // ---------- Уведомление ----------

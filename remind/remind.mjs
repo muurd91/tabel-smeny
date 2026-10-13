@@ -1,7 +1,7 @@
 // ================= Напоминания мастеру в Telegram =================
 // Запускается планировщиком GitHub (.github/workflows/remind.yml) дважды в день.
-// Утром: если сегодня дневная смена — «отметь отсутствующих»; 16-го и 1-го — «в 10:00 уйдёт табель».
-// Вечером: если сегодня ночная смена — «отметь отсутствующих».
+// В 8:00: если сегодня дневная смена (7:30–19:30) — «отметь отсутствующих»; 16-го и 1-го — «в 10:00 уйдёт табель».
+// В 20:00: если сегодня ночная смена (19:30–7:30) — «отметь отсутствующих».
 // К напоминанию о смене — кто сегодня не выйдет и кого не будет на следующей смене (больничный, отпуск, заявления).
 //
 // Данные — из Firestore (секрет FIREBASE_SA): график, бот и личный чат мастера берутся из настроек приложения.
@@ -15,6 +15,7 @@ let {
 
 // ---------- Табель из Firestore ----------
 let data = null;
+let TIMES = { Д: '7:30–19:30', Н: '19:30–7:30' }; // время смен — из настроек приложения, если есть
 if (FIREBASE_SA) {
   const { initializeApp, cert } = await import('firebase-admin/app');
   const { getFirestore } = await import('firebase-admin/firestore');
@@ -27,6 +28,7 @@ if (FIREBASE_SA) {
     ANCHOR = s.anchor || ANCHOR;
     CYCLE = s.cycle || CYCLE;
     SHIFT_NAME = s.shiftName || SHIFT_NAME;
+    TIMES = { Д: s.dayTime || TIMES.Д, Н: s.nightTime || TIMES.Н };
     TG_TOKEN = tg.token || TG_TOKEN;
     TG_CHAT = tg.meId || TG_CHAT;
   }
@@ -76,7 +78,8 @@ function nextShift(from) {
   return null;
 }
 function shiftMessage(icon, kind) {
-  const lines = [`${icon} ${SHIFT_NAME}: ${kind} смена ${dm}. Отметь, кого нет.`];
+  const time = TIMES[type] ? ` (${TIMES[type]})` : '';
+  const lines = [`${icon} ${SHIFT_NAME}: ${kind} смена ${dm}${time}. Отметь, кого нет.`];
   if (data) {
     const today = absent(iso);
     if (today.length) lines.push('', 'Сегодня не будет:', ...today);
