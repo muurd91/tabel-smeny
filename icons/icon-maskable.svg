@@ -1,14 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#1F2329"/>
-  <g transform="translate(120 127) scale(0.85)">
-    <rect x="0" y="0" width="320" height="304" rx="28" fill="#FFFFFF"/>
-    <rect x="0" y="0" width="320" height="72" rx="28" fill="#DADDE3"/>
-    <rect x="0" y="44" width="320" height="28" fill="#DADDE3"/>
-    <rect x="28" y="100" width="72" height="56" rx="10" fill="#82DA3A"/>
-    <rect x="124" y="100" width="72" height="56" rx="10" fill="#82DA3A"/>
-    <rect x="220" y="100" width="72" height="56" rx="10" fill="#E2A6DE"/>
-    <rect x="28" y="184" width="72" height="56" rx="10" fill="#82DA3A"/>
-    <rect x="124" y="184" width="72" height="56" rx="10" fill="#F6282A"/>
-    <rect x="220" y="184" width="72" height="56" rx="10" fill="#E2A6DE"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2E3440"/><stop offset="1" stop-color="#161A20"/></linearGradient>
+    <linearGradient id="hi" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#C4CAD3"/></linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <g transform="translate(120 138) scale(.585)" stroke-width="12" stroke-linejoin="round">
+    <path d="M222 20 440 388H350L180 100Z" fill="url(#hi)" stroke="url(#hi)"/>
+    <path d="M165 125 212 197 110 388H25Z" fill="url(#hi)" stroke="url(#hi)"/>
+    <path d="M225 228 320 388H240L225 360 210 388H135Z" fill="#82DA3A" stroke="#82DA3A"/>
   </g>
 </svg>
