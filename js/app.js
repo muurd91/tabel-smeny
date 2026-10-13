@@ -16,15 +16,15 @@ const UI = {
 };
 
 const ICON = {
-  left: '<svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>',
-  right: '<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>',
-  up: '<svg viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></svg>',
-  down: '<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>',
-  plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
-  file: '<svg viewBox="0 0 24 24"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8Zm0 0v5h5M9 13l6 5m0-5-6 5"/></svg>',
-  share: '<svg viewBox="0 0 24 24"><path d="M12 15V3m0 0L8 7m4-4 4 4M5 12v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7"/></svg>',
-  x: '<svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>',
-  trash: '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/></svg>',
+  left: '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>',
+  right: '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"/></svg>',
+  up: '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m18 15-6-6-6 6"/></svg>',
+  down: '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>',
+  file: '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8Zm0 0v5h5M9 13l6 5m0-5-6 5"/></svg>',
+  share: '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 15V3m0 0L8 7m4-4 4 4M5 12v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7"/></svg>',
+  x: '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/></svg>',
 };
 
 // ---------- Значения клеток ----------
@@ -1106,7 +1106,11 @@ function go(view) {
 
 function render() {
   for (const v of ['shift', 'tabel', 'people', 'more']) $(`#view-${v}`).hidden = v !== UI.view;
-  document.querySelectorAll('.nav__btn').forEach((b) => b.classList.toggle('is-active', b.dataset.view === UI.view));
+  document.querySelectorAll('.nav__btn').forEach((b) => {
+    const on = b.dataset.view === UI.view;
+    b.classList.toggle('is-active', on);
+    if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  });
   $('#top-title').textContent = TITLES[UI.view]();
   ({ shift: renderShift, tabel: renderTabel, people: renderPeople, more: renderMore })[UI.view]();
   renderSync();
@@ -1150,3 +1154,6 @@ Reports.tick();
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
+
+// Запуск дошёл до конца — index.html не покажет «Приложение не загрузилось».
+window.appStarted = true;

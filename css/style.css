@@ -275,3 +275,11 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .upcoming__row:first-of-type { border-top: 0; }
 .upcoming__date { flex: none; min-width: 92px; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .upcoming__date.is-soon { color: var(--part); font-weight: 700; }
+
+/* ================= «Приложение не загрузилось» ================= */
+.app-error {
+  margin: 24px 16px; padding: 20px; border-radius: var(--radius); background: var(--surface);
+  border: 2px solid var(--err); text-align: center;
+}
+.app-error b { font-size: 18px; }
+.app-error p { color: var(--muted); }

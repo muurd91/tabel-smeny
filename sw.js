@@ -1,21 +1,18 @@
 // ================= Service worker: офлайн-оболочка приложения =================
 // Кэшируются файлы приложения и библиотеки Firebase (gstatic.com); данные — в localStorage и Firestore.
-// При любом изменении файлов приложения поднимать VERSION — иначе телефон будет держать старую копию.
-const VERSION = 'v17';
-const CACHE = `ts-shell-${VERSION}`;
+// При любом изменении файлов приложения — tools/bump.sh: он поднимает VERSION здесь и ?v= в index.html
+// (иначе телефон будет держать старую копию, а новая страница может получить старые скрипты).
+const VERSION = '18';
+const CACHE = `ts-shell-v${VERSION}`;
+
+// Скрипты и стили — с ?v=VERSION, ровно как их запрашивает index.html.
+const VERSIONED = ['css/style.css', 'js/config.js', 'js/data.js', 'js/cloud.js', 'js/xlsx.js', 'js/telegram.js', 'js/report.js', 'js/app.js'];
 
 const SHELL = [
   './',
   'index.html',
   'manifest.webmanifest',
-  'css/style.css',
-  'js/config.js',
-  'js/data.js',
-  'js/cloud.js',
-  'js/xlsx.js',
-  'js/telegram.js',
-  'js/report.js',
-  'js/app.js',
+  ...VERSIONED.map((f) => `${f}?v=${VERSION}`),
   'icons/icon.svg',
   'icons/icon-192.png',
   'icons/icon-512.png',
@@ -58,12 +55,19 @@ self.addEventListener('fetch', (e) => {
   if (url.origin !== location.origin) return;
 
   // Страница — «сначала сеть»: обновления приходят сразу, без сети открывается сохранённая копия.
+  // В кэш кладём только страницу своей версии: если сайт уже обновился, а этот service worker старый,
+  // новая страница со ссылками на ещё не скачанные скрипты офлайн не открылась бы.
   if (req.mode === 'navigate') {
     e.respondWith(
       fetch(req.url, { cache: 'no-cache' })
         .then((res) => {
-          const copy = res.clone();
-          if (res.ok) caches.open(CACHE).then((c) => c.put('index.html', copy));
+          if (res.ok) {
+            res.clone().text().then((html) => {
+              if (html.includes(`name="app-version" content="${VERSION}"`)) {
+                caches.open(CACHE).then((c) => c.put('index.html', new Response(html, { headers: res.headers })));
+              }
+            });
+          }
           return res;
         })
         .catch(() => caches.match('index.html')),
