@@ -101,20 +101,9 @@ function renderShift() {
   const t = Sched.type(d);
   const map = Tabel.marksMap();
   const people = DB.data.people.filter((p) => !p.archived);
-  const thisYear = d.slice(0, 4) === Dates.today().slice(0, 4);
 
-  let html = `
-    <div class="datebar">
-      <button class="btn btn--icon" data-act="prev" type="button" aria-label="Предыдущий день">${ICON.left}</button>
-      <label class="datebar__mid">
-        <span class="datebar__date">${esc(dateTitle(d, !thisYear))}</span>
-        <span class="badge badge--${t}">${esc(typeLabel(t))}</span>
-        <input class="datebar__input" type="date" id="shift-date" value="${d}" aria-label="Выбрать дату">
-      </label>
-      <button class="btn btn--icon" data-act="next" type="button" aria-label="Следующий день">${ICON.right}</button>
-    </div>`;
-  if (d !== Sched.current()) html += `<div class="row row--end row--undo"><button class="link" data-act="today" type="button">Текущая смена</button></div>`;
-  html += Reports.banner();
+  // Дата, тип смены и ход времени — в шапке (renderShiftbar)
+  let html = Reports.banner();
 
   if (!people.length) {
     html += `<div class="card empty"><b>Пока никого нет</b>Загрузите прошлый табель — подтянутся люди и отметки.
@@ -143,10 +132,8 @@ function renderShift() {
   // Отмечены — только те, у кого есть отметка, отличная от графика (будущие пустые дни — не отметки).
   const marked = people.filter((p, i) => map.has(Tabel.markId(d, p.id)) && (t === 'В' ? vals[i] !== '' : kindOf(vals[i], d) !== t));
   if (t !== 'В' && !Sched.started(d)) {
-    const start = Sched.times(t)[0];
-    const at = `${Math.floor(start / 60)}:${String(start % 60).padStart(2, '0')}`;
-    html += `<div class="summary"><span class="summary__main">${d === Dates.today() ? `Смена начнётся в ${at}` : 'День ещё не наступил'}</span>
-      <span class="muted small">часы по графику появятся с началом смены; заранее можно отметить больничный или отпуск</span></div>`;
+    // Сколько до начала — в шапке; здесь только подсказка
+    html += `<p class="hint mt-0">Часы по графику появятся с началом смены. Заранее можно отметить больничный, отпуск или заявление.</p>`;
   } else if (t !== 'В') {
     const present = vals.filter((v) => typeof v === 'number' && v > 0).length;
     html += `<div class="summary"><span class="summary__main">На смене ${present} из ${people.length}</span>
@@ -164,6 +151,83 @@ function renderShift() {
   html += `<details class="all"${UI.showAll ? ' open' : ''}><summary>Все работники (${people.length})</summary>
     <div class="list">${people.map(row).join('')}</div></details>`;
   el.innerHTML = html;
+}
+
+// ---------- Шапка вкладки «Смена»: дата, тип смены, сколько осталось, полоса хода смены ----------
+// Начало и конец смены числа d как Date: ночная 13-го — с 19:30 13-го до 7:30 14-го.
+function shiftSpan(d, t) {
+  const [a, b] = Sched.times(t);
+  const [y, m, day] = d.split('-').map(Number);
+  const start = new Date(y, m - 1, day, Math.floor(a / 60), a % 60);
+  const end = new Date(start.getTime() + (((b - a + 1440) % 1440) || 1440) * 60000);
+  return { start, end };
+}
+const hhmm = (dt) => `${dt.getHours()}:${String(dt.getMinutes()).padStart(2, '0')}`;
+function durText(ms) {
+  const min = Math.max(1, Math.ceil(ms / 60000));
+  const h = Math.floor(min / 60), m = min % 60;
+  return [h ? `${h} ч` : '', m ? `${m} мин` : ''].filter(Boolean).join(' ');
+}
+
+function renderShiftbar() {
+  const el = $('#shiftbar');
+  el.hidden = UI.view !== 'shift';
+  if (el.hidden) return;
+  const d = UI.date;
+  const t = Sched.type(d);
+  const now = new Date();
+  const name = { Д: 'Дневная смена', Н: 'Ночная смена' }[t] || 'Выходной';
+  const thisYear = d.slice(0, 4) === Dates.today().slice(0, 4);
+
+  let main, sub = '', pct = null;
+  if (t === 'В') {
+    main = 'Выходной по графику';
+  } else {
+    const { start, end } = shiftSpan(d, t);
+    const span = `${hhmm(start)}–${hhmm(end)}`;
+    if (now < start) {
+      main = start - now < 864e5 ? `До начала смены ${durText(start - now)}` : 'Смена впереди';
+      sub = span; pct = 0;
+    } else if (now < end) {
+      main = `До конца смены ${durText(end - now)}`;
+      sub = `до ${hhmm(end)}`; pct = (now - start) / (end - start) * 100;
+    } else {
+      main = 'Смена закончилась'; sub = span; pct = 100;
+    }
+  }
+
+  el.innerHTML = `
+    <label class="shiftbar__date">
+      <span class="shiftbar__title">${esc(name)} · ${esc(dateTitle(d, !thisYear))}</span>${ICON.down}
+      <input class="datebar__input" type="date" id="shift-date" value="${d}" aria-label="Выбрать дату">
+    </label>
+    <div class="shiftbar__status"><b>${esc(main)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}</div>
+    ${pct === null ? '' : `<div class="shiftbar__track" role="progressbar" aria-label="Ход смены" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><div class="shiftbar__fill${pct >= 100 ? ' is-done' : ''}"></div></div>`}
+    ${d !== Sched.current() ? '<button class="shiftbar__back" data-act="today" type="button">К текущей смене</button>' : ''}`;
+  const fill = $('.shiftbar__fill', el);
+  if (fill) fill.style.width = `${Math.min(100, Math.max(0, pct))}%`;
+}
+
+$('#shiftbar').addEventListener('click', (e) => {
+  if (e.target.closest('[data-act="today"]')) { UI.date = Sched.current(); UI.qf.reason = ''; UI.qf.from = UI.qf.until = undefined; render(); return; }
+  // Открыть календарь по нажатию на дату (там, где браузер это умеет)
+  const input = e.target.closest('.shiftbar__date')?.querySelector('input');
+  try { input?.showPicker?.(); } catch {}
+});
+$('#shiftbar').addEventListener('change', (e) => {
+  if (e.target.id === 'shift-date' && e.target.value) { UI.date = e.target.value; UI.qf.reason = ''; UI.qf.from = UI.qf.until = undefined; render(); }
+});
+
+// Раз в полминуты — обновить «сколько осталось»; на стыке смен (7:30, 19:30) перерисовать экран целиком:
+// у новой смены появляются часы по графику.
+{
+  let key = '';
+  setInterval(() => {
+    if (document.hidden || UI.view !== 'shift') return;
+    const k = `${Sched.current()}|${Sched.started(UI.date)}`;
+    if (key && k !== key) render(); else renderShiftbar();
+    key = k;
+  }, 30000);
 }
 
 // ---------- Быстрая отметка: работник + причина ----------
@@ -325,9 +389,6 @@ function saveQuick() {
 
 $('#view-shift').addEventListener('click', (e) => {
   const act = e.target.closest('[data-act]')?.dataset.act;
-  if (act === 'prev') { UI.date = Dates.add(UI.date, -1); UI.qf.reason = ''; UI.qf.from = UI.qf.until = undefined; render(); return; }
-  if (act === 'next') { UI.date = Dates.add(UI.date, 1); UI.qf.reason = ''; UI.qf.from = UI.qf.until = undefined; render(); return; }
-  if (act === 'today') { UI.date = Sched.current(); render(); return; }
   if (act === 'import') { $('#file-xlsx').click(); return; }
   if (act === 'people') { go('people'); addPerson(); return; }
   if (act === 'qf-save') { saveQuick(); return; }
@@ -344,13 +405,9 @@ $('#view-shift').addEventListener('click', (e) => {
   }
   const pid = e.target.closest('[data-pid]')?.dataset.pid;
   if (pid) { openEditor(pid, UI.date); return; }
-  // Открыть календарь по нажатию на дату (там, где браузер это умеет)
-  const input = e.target.closest('.datebar__mid')?.querySelector('input');
-  try { input?.showPicker?.(); } catch {}
 });
 $('#view-shift').addEventListener('change', (e) => {
-  if (e.target.id === 'shift-date' && e.target.value) { UI.date = e.target.value; UI.qf.reason = ''; UI.qf.from = UI.qf.until = undefined; render(); }
-  else if (e.target.id === 'qf-person') { UI.qf.pid = e.target.value; render(); }
+  if (e.target.id === 'qf-person') { UI.qf.pid = e.target.value; render(); }
   else if (e.target.id === 'qf-from' && e.target.value) { UI.qf.from = e.target.value; render(); } // обновить «по» и подсказку
 });
 $('#view-shift').addEventListener('input', (e) => {
@@ -1166,6 +1223,7 @@ function render() {
   });
   $('#top-title').textContent = TITLES[UI.view]();
   ({ shift: renderShift, tabel: renderTabel, people: renderPeople, more: renderMore })[UI.view]();
+  renderShiftbar();
   renderSync();
 }
 
