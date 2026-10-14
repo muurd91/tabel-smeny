@@ -878,7 +878,7 @@ const mailOk = (a) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a);
 
 function mailCard() {
   const m = DB.data.settings.mail || {};
-  return `<p class="small muted">16-го и 1-го в ${CONFIG.sendHour}:00 планировщик пришлёт на эти адреса письмо: картинка табеля, Excel и примечания. Ящик, с которого уходят письма, настраивается в GitHub (секреты MAIL_USER и MAIL_PASS).</p>
+  return `<p class="small muted">16-го и 1-го в ${CONFIG.sendHour}:00 планировщик пришлёт на эти адреса письмо с табелем в Excel. Ящик, с которого уходят письма, настраивается в GitHub (секреты MAIL_USER и MAIL_PASS).</p>
     <label class="field"><span class="field__label">Кому (несколько адресов — через запятую)</span><input class="input" id="mail-to" type="email" multiple inputmode="email" autocomplete="off" placeholder="buh@example.com" value="${esc(mailList(m.to).join(', '))}"></label>
     <label class="check"><input type="checkbox" id="mail-auto" ${m.auto !== false ? 'checked' : ''}><span>Отправлять автоматически 16-го и 1-го числа</span></label>
     <button class="btn btn--primary btn--block" data-act="mail-save" type="button">Сохранить адреса</button>`;

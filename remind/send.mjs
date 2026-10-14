@@ -156,12 +156,11 @@ for (const doc of docs) {
   if (mailWhy) console.log(`${r.id}: почта — пропуск (${mailWhy})`);
   else {
     try {
+      // На почту — только Excel (без картинки и примечаний)
       sandbox.__args = [r.ym, r.name];
-      const files = await run('Reports.files(...__args)');
+      const files = [run('(() => { const x = Xlsx.build(__args[0]); return new File([x], `${__args[1]}.xlsx`, { type: x.type }); })()')];
       const subject = prefix + run(`Reports.periodCaption(${JSON.stringify(r.ym)})`);
-      sandbox.__args = [r.ym, prefix + r.caption];
-      const text = run('Reports.summary(...__args)').replace(/^📋 /, '');
-      await sendMail(mailTo, subject, text, files);
+      await sendMail(mailTo, subject, 'Табель во вложении.', files);
       done.mailSentAt = now();
       console.log(`${r.id}: почта — отправлено (получателей: ${mailTo.length})`);
     } catch (e) {
