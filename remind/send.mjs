@@ -91,7 +91,7 @@ if (!docs.length) { console.log('::warning::В Firestore нет табеля в�
 
 // ---------- Почта (необязательно) ----------
 // Ящик-отправитель — секреты MAIL_USER и MAIL_PASS (пароль приложения, не обычный пароль),
-// MAIL_HOST — если не Gmail (например smtp.yandex.ru). Получатели — в приложении: «Ещё» → «Почта».
+// MAIL_HOST — если не Gmail (например smtp.yandex.ru). Получатели — в приложении: «Настройки» → «Почта».
 const { MAIL_USER, MAIL_PASS, MAIL_HOST = 'smtp.gmail.com' } = process.env;
 let mailer = null;
 async function sendMail(to, subject, text, files) {

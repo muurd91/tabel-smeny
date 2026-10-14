@@ -3,17 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#F4F5F7" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#0F1115" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#2F5D4E">
+  <meta name="color-scheme" content="light">
   <!-- Версия приложения: та же, что VERSION в sw.js и ?v= у файлов ниже (меняет tools/bump.sh) -->
-  <meta name="app-version" content="25">
+  <meta name="app-version" content="26">
   <title>Табель смены</title>
   <meta name="apple-mobile-web-app-title" content="Табель смены">
   <meta name="application-name" content="Табель смены">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/style.css?v=25">
+  <link rel="stylesheet" href="css/style.css?v=26">
 </head>
 <body>
   <header class="top">
@@ -40,7 +40,7 @@
     <button class="nav__btn" data-view="shift" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 3v2M17 3v2M4 8h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm4 9 2 2 4-4"/></svg><span>Смена</span></button>
     <button class="nav__btn" data-view="tabel" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16v14H4zM4 10h16M4 15h16M9 5v14M14.5 5v14"/></svg><span>Табель</span></button>
     <button class="nav__btn" data-view="people" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm-6 9c0-3.3 2.7-6 6-6s6 2.7 6 6M16 4.5a3.5 3.5 0 0 1 0 6.5M18 14.5c1.8.9 3 2.9 3 5.5"/></svg><span>Люди</span></button>
-    <button class="nav__btn" data-view="more" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg><span>Ещё</span></button>
+    <button class="nav__btn" data-view="more" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg><span>Настройки</span></button>
   </nav>
 
   <dialog class="sheet" id="sheet"><form method="dialog" class="sheet__body" id="sheet-body"></form></dialog>
@@ -49,13 +49,13 @@
   <input type="file" id="file-json" accept=".json,application/json" hidden>
 
   <!-- ?v= — чтобы новая страница никогда не взяла из кэша старые скрипты (иначе после обновления — пустой экран) -->
-  <script src="js/config.js?v=25"></script>
-  <script src="js/data.js?v=25"></script>
-  <script src="js/cloud.js?v=25"></script>
-  <script src="js/xlsx.js?v=25"></script>
-  <script src="js/telegram.js?v=25"></script>
-  <script src="js/report.js?v=25"></script>
-  <script src="js/app.js?v=25"></script>
+  <script src="js/config.js?v=26"></script>
+  <script src="js/data.js?v=26"></script>
+  <script src="js/cloud.js?v=26"></script>
+  <script src="js/xlsx.js?v=26"></script>
+  <script src="js/telegram.js?v=26"></script>
+  <script src="js/report.js?v=26"></script>
+  <script src="js/app.js?v=26"></script>
   <script>
     // app.js в конце ставит window.appStarted; если его нет — что-то не загрузилось или упало при запуске.
     if (!window.appStarted) document.getElementById('app-error').hidden = false;

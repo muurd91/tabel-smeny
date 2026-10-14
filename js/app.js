@@ -1,6 +1,6 @@
 // ================= Интерфейс =================
 // Четыре экрана: «Смена» (отметить, кто не вышел, на выбранную дату), «Табель» (месяц целиком,
-// выгрузка в Excel), «Люди» (состав смены), «Ещё» (облако, график, Telegram, копии данных).
+// выгрузка в Excel), «Люди» (состав смены), «Настройки» (облако, график, Telegram, копии данных).
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -256,7 +256,7 @@ async function notifyPlanned(p, dates, v, reason) {
   const future = dates.filter((d) => d > today);
   if (!future.length || !PLANNED.includes(v)) return;
   if (!Telegram.meReady()) {
-    if (Telegram.ready()) toast('Чтобы бот писал о таком вам лично: «Ещё» → «Уведомления мне»');
+    if (Telegram.ready()) toast('Чтобы бот писал о таком вам лично: «Настройки» → «Уведомления мне»');
     return;
   }
   const kind = (d) => ({ Д: 'день', Н: 'ночь' }[Sched.type(d)] || 'выходной');
@@ -489,7 +489,7 @@ function renderTabel() {
       <button class="btn btn--icon" data-act="next" type="button" aria-label="Следующий месяц">${ICON.right}</button>
     </div>
     <div class="row" style="margin-bottom:12px">
-      <button class="btn btn--primary grow" data-act="xlsx" type="button">${ICON.file} Скачать Excel</button>
+      <button class="btn btn--primary grow" data-act="xlsx" type="button" aria-label="Скачать Excel">${ICON.file} Excel</button>
       ${canShare ? `<button class="btn grow" data-act="share" type="button">${ICON.share} Отправить</button>` : ''}
       <button class="btn btn--icon" data-act="clear" type="button" aria-label="Очистить" title="Очистить часы и отметки">${ICON.trash}</button>
     </div>`;
@@ -787,7 +787,7 @@ async function importXlsx(file, year) {
   });
 }
 
-// ================= Экран «Ещё» =================
+// ================= Экран «Настройки» =================
 function renderMore() {
   const el = $('#view-more');
   const s = DB.data.settings;
@@ -1127,7 +1127,7 @@ $('#file-json').addEventListener('change', async (e) => {
 
 // ================= Навигация и индикатор =================
 const APP_VERSION = '1';
-const TITLES = { shift: () => DB.data.settings.shiftName, tabel: () => 'Табель', people: () => 'Люди', more: () => 'Ещё' };
+const TITLES = { shift: () => DB.data.settings.shiftName, tabel: () => 'Табель', people: () => 'Люди', more: () => 'Настройки' };
 
 function go(view) {
   UI.view = view;
