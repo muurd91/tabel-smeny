@@ -143,10 +143,9 @@ const Reports = (() => {
     });
   }
 
-  // Картинка + Excel. name — без расширения.
+  // Картинка + Excel. name — без расширения. «По факту»: будущие отметки (отпуск, заявления) не попадают.
   async function files(ym, name) {
-    const png = await Snapshot.png(ym, `по состоянию на ${nowDm()}`);
-    const xlsx = Xlsx.build(ym);
+    const [png, xlsx] = await Tabel.asFact(async () => [await Snapshot.png(ym, `по состоянию на ${nowDm()}`), Xlsx.build(ym)]);
     return [new File([png], `${name}.png`, { type: 'image/png' }), new File([xlsx], `${name}.xlsx`, { type: xlsx.type })];
   }
 
@@ -186,7 +185,7 @@ const Reports = (() => {
   // ---------- Сообщение под табелем ----------
   // Те же примечания, что под таблицей в Excel: «04.09 Иванова заявление за свой счёт».
   function summary(ym, title) {
-    const notes = Tabel.notesOf(ym).map((n) => n.text);
+    const notes = Tabel.asFact(() => Tabel.notesOf(ym)).map((n) => n.text); // по факту, как в картинке
     const text = [`📋 ${title}`, '', ...(notes.length ? ['Примечания:', ...notes] : ['Примечаний нет.'])].join('\n');
     return text.length > 4000 ? `${text.slice(0, 3990)}\n…` : text;
   }

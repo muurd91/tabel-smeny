@@ -156,9 +156,9 @@ for (const doc of docs) {
   if (mailWhy) console.log(`${r.id}: почта — пропуск (${mailWhy})`);
   else {
     try {
-      // На почту — только Excel (без картинки и примечаний)
+      // На почту — только Excel (без картинки и примечаний), «по факту»: без будущих отметок
       sandbox.__args = [r.ym, r.name];
-      const files = [run('(() => { const x = Xlsx.build(__args[0]); return new File([x], `${__args[1]}.xlsx`, { type: x.type }); })()')];
+      const files = [run('(() => { const x = Tabel.asFact(() => Xlsx.build(__args[0])); return new File([x], `${__args[1]}.xlsx`, { type: x.type }); })()')];
       const subject = prefix + run(`Reports.periodCaption(${JSON.stringify(r.ym)})`);
       // «Смена 1 — табель за октябрь 2026, с 01 по 16.10» → «Во вложении табель за октябрь 2026, с 01 по 16.10 (Смена 1).»
       const shift = run('DB.data.settings.shiftName');

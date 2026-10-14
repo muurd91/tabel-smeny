@@ -211,8 +211,22 @@ const Tabel = {
     return Sched.started(date) ? Sched.hours(date) || '' : '';
   },
 
+  // Режим «по факту» (отправка табеля): только начавшиеся смены — запланированное на будущее (отпуск,
+  // больничный «по 20-е», заявления) в картинку, Excel и примечания не попадает. Включается через asFact().
+  factOnly: false,
+  asFact(fn) {
+    const prev = this.factOnly;
+    this.factOnly = true;
+    let r;
+    try { r = fn(); } catch (e) { this.factOnly = prev; throw e; }
+    if (r && typeof r.then === 'function') return r.finally(() => { this.factOnly = prev; });
+    this.factOnly = prev;
+    return r;
+  },
+
   // Значение клетки: число часов, код или '' (пусто).
   cell(pid, date, map = this.marksMap()) {
+    if (this.factOnly && !Sched.started(date)) return '';
     const m = map.get(this.markId(date, pid));
     return m ? m.v : this.def(date);
   },
@@ -253,6 +267,7 @@ const Tabel = {
     const groups = new Map();
     for (const m of DB.data.marks) {
       if (!m.reason || !m.date.startsWith(ym) || !people.has(m.pid)) continue;
+      if (this.factOnly && !Sched.started(m.date)) continue; // будущее — не в отправку
       const k = `${m.date}|${m.reason}`;
       if (!groups.has(k)) groups.set(k, { date: m.date, reason: m.reason, pids: [] });
       groups.get(k).pids.push(m.pid);
