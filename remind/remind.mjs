@@ -16,6 +16,8 @@ let {
 // ---------- Табель из Firestore ----------
 let data = null;
 let TIMES = { Д: '7:30–19:30', Н: '19:30–7:30' }; // время смен — из настроек приложения, если есть
+let db = null; // Firestore — чтобы отметить отправленное напоминание (второй запуск того же напоминания промолчит)
+let logRef = null;
 if (FIREBASE_SA) {
   const { initializeApp, cert } = await import('firebase-admin/app');
   const { getFirestore } = await import('firebase-admin/firestore');
@@ -24,10 +26,12 @@ if (FIREBASE_SA) {
   const fs = await import('node:fs');
   const owner = (fs.readFileSync(new URL('../js/config.js', import.meta.url), 'utf8').match(/owner:\s*'([^']*)'/) || [])[1] || '';
   if (!owner) console.log('::warning::В js/config.js не задан firebase.owner — берётся первый табель в базе.');
-  const doc = (await getFirestore().collectionGroup('apps').get()).docs
+  db = getFirestore();
+  const doc = (await db.collectionGroup('apps').get()).docs
     .find((d) => d.id === 'tabel' && (!owner || d.ref.parent.parent?.id === owner));
   if (doc) {
     data = JSON.parse(doc.get('json'));
+    logRef = doc.ref.parent.doc('remind-log'); // users/<uid>/apps/remind-log: { '2026-10-14|evening': время }
     const s = data.settings || {};
     const tg = s.telegram || {};
     ANCHOR = s.anchor || ANCHOR;
@@ -98,10 +102,18 @@ function shiftMessage(icon, kind) {
   return lines.join('\n') + link;
 }
 
-// Какой запуск: по строке расписания из workflow (SLOT), а если её нет — по часу.
-// 8:00 — дневная смена, 9:30 16-го и 1-го — напоминание о табеле, 20:00 — ночная смена.
-const SLOTS = { '0 5 * * *': 'morning', '30 6 1,16 * *': 'tabel', '0 17 * * *': 'evening' };
+// Какой запуск. SLOT — имя напоминания (morning | tabel | evening) от внешнего будильника (cron-job.org запускает
+// workflow командой точно в срок) или строка расписания GitHub (запасной вариант: GitHub опаздывает на часы).
+// Если ни то ни другое — по часу. 8:00 — дневная смена, 9:30 16-го и 1-го — о табеле, 20:00 — ночная смена.
+const SLOTS = { '0 5 * * *': 'morning', '30 6 1,16 * *': 'tabel', '0 17 * * *': 'evening', morning: 'morning', tabel: 'tabel', evening: 'evening' };
 const slot = SLOTS[process.env.SLOT] || (hour < 9 ? 'morning' : hour < 14 ? 'tabel' : 'evening');
+const SLOT_AT = { morning: 8 * 60, tabel: 9 * 60 + 30, evening: 20 * 60 }; // минуты от полуночи, местное время
+const lateBy = hour * 60 + local.getUTCMinutes() - SLOT_AT[slot];
+if (MODE !== 'test' && (lateBy > 60 || lateBy < -30)) {
+  // Опоздавший запуск (GitHub) бесполезен: «отметь ночную смену» в 3 часа ночи только сбивает
+  console.log(`${iso}: ${slot} — пропуск, запуск не вовремя (${lateBy > 0 ? `опоздание ${lateBy} мин` : 'слишком рано'})`);
+  process.exit(0);
+}
 
 const messages = [];
 if (MODE === 'test') {
@@ -116,6 +128,13 @@ if (MODE === 'test') {
   messages.push(shiftMessage('🌙', 'ночная'));
 }
 
+// Это напоминание сегодня уже ушло (сработали и будильник, и запасное расписание GitHub) — второй раз не слать
+const logKey = `${iso}|${slot}`;
+if (MODE !== 'test' && messages.length && logRef && (await logRef.get()).data()?.[logKey]) {
+  console.log(`${logKey}: пропуск — уже отправлено`);
+  process.exit(0);
+}
+
 for (const text of messages) {
   const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
     method: 'POST',
@@ -126,3 +145,4 @@ for (const text of messages) {
   if (!j.ok) { console.error('Telegram:', j.description); process.exit(1); }
 }
 console.log(`${iso} ${String(hour).padStart(2, '0')}:xx, смена ${type}${data ? ', данные из Firestore' : ''}: отправлено ${messages.length}`);
+if (MODE !== 'test' && messages.length && logRef) await logRef.set({ [logKey]: new Date().toISOString() }, { merge: true });

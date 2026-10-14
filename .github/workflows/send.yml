@@ -1,5 +1,5 @@
 # Табель в группу Telegram 16-го и 1-го числа (скрипт — remind/send.mjs).
-# 8:00 UTC = 11:00 по Минску (CONFIG.sendHour в приложении). GitHub может запустить с опозданием на 10–20 минут.
+# 8:00 UTC = 11:00 по Минску (CONFIG.sendHour в приложении). По расписанию GitHub опаздывает до нескольких часов.
 # Секрет FIREBASE_SA — ключ сервисного аккаунта Firebase (JSON целиком):
 #   консоль Firebase → настройки проекта → Service accounts → Generate new private key.
 # Бот и группа берутся из настроек приложения (в Firestore), отдельный токен здесь не нужен.
@@ -17,6 +17,12 @@ on:
         default: test
         type: choice
         options: [test, auto, selftest]
+
+# Точно в 11:00 запускает внешний будильник (cron-job.org): workflow_dispatch с mode=auto. Расписание выше — запасное
+# (GitHub опаздывает на часы). По одному запуску за раз: второй увидит, что табель уже отправлен, и пропустит.
+concurrency:
+  group: send
+  cancel-in-progress: false
 
 permissions:
   contents: read

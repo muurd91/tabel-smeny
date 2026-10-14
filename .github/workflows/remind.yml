@@ -1,6 +1,6 @@
 # Напоминания мастеру в Telegram (скрипт — remind/remind.mjs).
 # Время в cron — UTC (Беларусь = UTC+3): 5:00 = 8:00, 6:30 = 9:30, 17:00 = 20:00.
-# GitHub может запустить с опозданием на 10–20 минут.
+# GitHub запускает по расписанию с опозданием до нескольких часов — поэтому основной запуск от cron-job.org (см. ниже).
 # Данные берутся из Firestore (секрет FIREBASE_SA — тот же ключ, что у «Табель в группу»): график, бот и личный чат
 # мастера — из настроек приложения («Настройки» → Telegram → «Уведомления мне»), плюс кто сегодня и на следующей смене не выйдет.
 # Без FIREBASE_SA — запасной вариант: секреты TG_TOKEN и TG_CHAT, график из ANCHOR/CYCLE ниже.
@@ -11,13 +11,24 @@ on:
     - cron: '0 5 * * *'       # 8:00 — дневная смена (7:30–19:30)
     - cron: '30 6 1,16 * *'   # 9:30 16-го и 1-го — «в 11:00 уйдёт табель»
     - cron: '0 17 * * *'      # 20:00 — ночная смена (19:30–7:30)
+  # Точно в срок запускает внешний будильник (cron-job.org) командой workflow_dispatch: mode=auto, slot=morning|tabel|evening.
+  # Расписание GitHub выше — запасное: оно опаздывает на часы; опоздавшие и повторные запуски скрипт пропускает.
   workflow_dispatch:
     inputs:
       mode:
-        description: 'test — прислать пробное сообщение сейчас'
+        description: 'test — прислать пробное сообщение сейчас; auto — как по расписанию'
         default: test
         type: choice
         options: [test, auto]
+      slot:
+        description: 'какое напоминание (для auto): morning — 8:00, tabel — 9:30 16-го и 1-го, evening — 20:00'
+        default: ''
+        type: string
+
+# По одному запуску за раз: если будильник и GitHub сработали одновременно, второй увидит отметку «уже отправлено»
+concurrency:
+  group: remind
+  cancel-in-progress: false
 
 permissions:
   actions: write # чтобы GitHub не выключил расписание через 60 дней без коммитов
@@ -42,7 +53,7 @@ jobs:
           SHIFT_NAME: 'Смена 1'
           APP_URL: 'https://muurd91.github.io/tabel-smeny/'
           MODE: ${{ inputs.mode || 'auto' }}
-          SLOT: ${{ github.event.schedule }}
+          SLOT: ${{ inputs.slot || github.event.schedule }}
       # GitHub отключает расписание в репозитории без активности 60 дней — продлеваем при каждом запуске.
       - run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/remind.yml/enable"
         env:
