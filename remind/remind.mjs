@@ -39,7 +39,7 @@ if (FIREBASE_SA) {
     SHIFT_NAME = s.shiftName || SHIFT_NAME;
     TIMES = { Д: s.dayTime || TIMES.Д, Н: s.nightTime || TIMES.Н };
     TG_TOKEN = tg.token || TG_TOKEN;
-    TG_CHAT = tg.meId || TG_CHAT;
+    TG_CHAT = tg.meId || ''; // только личный чат мастера («Уведомления мне»), никогда не группа
   }
 }
 
