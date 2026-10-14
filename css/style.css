@@ -278,7 +278,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
   background-color: var(--brand); color: var(--on-brand);
   background-image:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='80' viewBox='0 0 220 80' fill='none' stroke='%23F6EEDC' stroke-opacity='.24' stroke-width='1.6'%3E%3Cpath d='M120 70c10-40 40-62 80-64-4 40-34 64-80 64Zm0 0c22-20 44-38 76-60'/%3E%3Cpath d='M168 82c4-26 24-44 50-48-2 26-22 46-50 48Zm0 0c14-14 30-28 48-44'/%3E%3Cpath d='M92 30c16-18 38-24 58-18-12 18-36 26-58 18Zm0 0c18-4 38-10 56-18'/%3E%3C/svg%3E"),
-    linear-gradient(160deg, var(--brand), var(--brand-2));
+    linear-gradient(var(--brand), var(--brand)); /* однотонно: сверху стык со строкой состояния Android (theme-color = --brand) */
   background-repeat: no-repeat; background-position: right top, 0 0; background-size: auto 100%, auto;
   border-radius: 0 0 24px 24px; margin-bottom: 14px; padding-bottom: 14px;
   box-shadow: 0 6px 18px var(--shadow);
