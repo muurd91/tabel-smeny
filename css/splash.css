@@ -1,6 +1,8 @@
 /* ================= Заставка при запуске — только телефон в портрете ================= */
 /* Дизайн — «Амина», стиль C с горшками (вариант «Телефон»). Размеры — в cqw от ширины экрана,
    высота по экрану — в cqh, чтобы горшки летели по терракотовой зоне на телефоне любой высоты.
+   Системный экран запуска Android (значок на фоне background_color из manifest.webmanifest) отключить нельзя —
+   его фон в цвет заставки (#3b8f7c), чтобы переход был незаметен.
    Показ и закрытие — js/splash.js. Если скрипт не сработал, заставка сама исчезнет через 8 с (splash-failsafe). */
 .splash { display: none; }
 @media (max-width: 600px) and (orientation: portrait) {
@@ -73,7 +75,7 @@
 /* Появление */
 .splash.is-on .splash__card, .splash.is-on .splash__slogan { animation: splash-in .9s ease both; }
 .splash.is-on .splash__slogan { animation-delay: .25s; }
-.splash.is-on .splash__pill i { animation: splash-load 2.6s ease-in-out both; }
+.splash.is-on .splash__pill i { animation: splash-load 2.9s ease-in-out both; }
 .splash.is-on .splash__sig { animation: splash-sig 1s ease 1.2s both; }
 @keyframes splash-in { from { opacity: 0; transform: translateY(2cqw); } to { opacity: 1; transform: none; } }
 @keyframes splash-load { to { transform: scaleX(1); } }
