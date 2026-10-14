@@ -481,6 +481,7 @@ function renderTabel() {
   const people = Tabel.peopleOf(ym);
   const map = Tabel.marksMap();
   const today = Dates.today();
+  const s = DB.data.settings;
   const types = days.map((d) => Sched.type(d));
   const canShare = !!(navigator.canShare && window.File);
 
@@ -520,11 +521,19 @@ function renderTabel() {
       <tr><th class="name">${esc(DB.data.settings.shiftName)}</th>${head2}<th class="tot">Итого</th></tr>
       <tr><th class="name"></th>${head3}<th class="tot"></th></tr></thead>
       <tbody>${body}</tbody></table></div>
-    <div class="legend">
-      <span><i class="i-day"></i>день</span><span><i class="i-night"></i>ночь</span>
-      <span class="t-sick">Б — больничный</span><span class="t-vac">ОТ — отпуск</span>
-      <span class="t-absent">− отсутствие</span><span><i class="i-part"></i>неполная</span>
-      <span><i class="i-extra"></i>сверх графика</span>
+    <div class="card legend"><h2>Обозначения</h2>
+      <div class="legend__grid">
+        ${[
+          ['Д', s.dayHours, `дневная смена (${s.dayTime})`],
+          ['Н', s.nightHours, `ночная смена (${s.nightTime})`],
+          ['c--sick', 'Б', 'больничный'],
+          ['c--vac', 'ОТ', 'отпуск'],
+          ['c--absent', '−', 'не вышел: за свой счёт, прогул'],
+          ['c--part', String(s.dayHours - 3), 'неполная смена (сколько отработал)'],
+          ['c--extra', s.dayHours, 'вышел сверх графика'],
+          ['', '', 'выходной или смена ещё не началась'],
+        ].map(([cls, v, text]) => `<div class="legend__row"><span class="legend__cell ${cls}">${esc(String(v))}</span><span>${esc(text)}</span></div>`).join('')}
+      </div>
     </div>`;
 
   const notes = Tabel.notesOf(ym);

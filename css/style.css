@@ -263,21 +263,28 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .tabel td.c--absent { color: var(--absent); font-weight: 700; }
 .tabel td.c--part { color: var(--part); font-weight: 700; background-image: linear-gradient(var(--part-soft), var(--part-soft)); }
 .tabel td.c--extra { color: var(--extra); font-weight: 700; background: var(--extra-soft); }
-.legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 10px 2px; font-size: 14px; color: var(--muted); }
-.legend span { display: inline-flex; align-items: center; gap: 6px; }
-.legend i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
-.legend .t-sick { color: var(--sick); }
-.legend .t-vac { color: var(--vac); }
-.legend .t-absent { color: var(--absent); }
-.legend .i-day { background: var(--day); }
-.legend .i-night { background: var(--night); }
-.legend .i-part { background: var(--part-soft); }
-.legend .i-extra { background: var(--extra-soft); }
+/* Обозначения: образец клетки (как в табеле) + пояснение обычным текстом */
+.legend { margin-top: 12px; }
+.legend__grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
+@media (min-width: 560px) { .legend__grid { grid-template-columns: 1fr 1fr; } }
+.legend__row { display: flex; align-items: center; gap: 12px; font-size: 15px; color: var(--text); }
+.legend__cell {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 32px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+  font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.legend__cell.Д { background: var(--day); }
+.legend__cell.Н { background: var(--night); }
+.legend__cell.c--sick { color: var(--sick); font-weight: 700; }
+.legend__cell.c--vac { color: var(--vac); font-weight: 700; }
+.legend__cell.c--absent { color: var(--absent); font-weight: 700; }
+.legend__cell.c--part { color: var(--part); font-weight: 700; background: var(--part-soft); }
+.legend__cell.c--extra { color: var(--extra); font-weight: 700; background: var(--extra-soft); }
 
 .notes { list-style: none; margin: 0; padding: 0; }
 .notes li { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
 .notes li:last-child { border-bottom: 0; }
-.notes .tag { font-size: 12px; color: var(--muted); }
+.notes .tag { flex: none; font-size: 13px; color: var(--muted); }
 
 /* ================= Нижний лист (окно) ================= */
 .sheet {
