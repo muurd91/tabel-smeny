@@ -819,6 +819,8 @@ function renderMore() {
 
     <div class="card"><h2>Telegram</h2>${telegramCard()}</div>
 
+    <div class="card"><h2>Почта</h2>${mailCard()}</div>
+
     <div class="card"><h2>График смены</h2>
       <label class="field"><span class="field__label">Название</span><input class="input" id="st-name" value="${esc(s.shiftName)}"></label>
       <label class="field"><span class="field__label">Первый день цикла (первая дневная смена)</span><input class="input" id="st-anchor" type="date" value="${esc(s.anchor)}"></label>
@@ -866,6 +868,20 @@ function signInEmailSheet() {
     };
   });
   draw();
+}
+
+// ---------- Почта ----------
+// Письма отправляет только планировщик GitHub (remind/send.mjs): из браузера почту не отправить.
+// Ящик-отправитель и его пароль приложения — в секретах GitHub (MAIL_USER, MAIL_PASS), здесь только получатели.
+const mailList = (s) => String(s || '').split(/[\s,;]+/).filter(Boolean);
+const mailOk = (a) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a);
+
+function mailCard() {
+  const m = DB.data.settings.mail || {};
+  return `<p class="small muted">16-го и 1-го в ${CONFIG.sendHour}:00 планировщик пришлёт на эти адреса письмо: картинка табеля, Excel и примечания. Ящик, с которого уходят письма, настраивается в GitHub (секреты MAIL_USER и MAIL_PASS).</p>
+    <label class="field"><span class="field__label">Кому (несколько адресов — через запятую)</span><input class="input" id="mail-to" type="email" multiple inputmode="email" autocomplete="off" placeholder="buh@example.com" value="${esc(mailList(m.to).join(', '))}"></label>
+    <label class="check"><input type="checkbox" id="mail-auto" ${m.auto !== false ? 'checked' : ''}><span>Отправлять автоматически 16-го и 1-го числа</span></label>
+    <button class="btn btn--primary btn--block" data-act="mail-save" type="button">Сохранить адреса</button>`;
 }
 
 // ---------- Telegram ----------
@@ -1047,6 +1063,7 @@ function telegramMe() {
 
 $('#view-more').addEventListener('change', (e) => {
   if (e.target.id === 'tg-auto') DB.update((d) => { d.settings.telegram = { ...d.settings.telegram, auto: e.target.checked }; });
+  if (e.target.id === 'mail-auto') DB.update((d) => { d.settings.mail = { ...d.settings.mail, auto: e.target.checked }; });
 });
 
 $('#view-more').addEventListener('click', async (e) => {
@@ -1062,6 +1079,13 @@ $('#view-more').addEventListener('click', async (e) => {
     btn.disabled = false;
   } else if (act === 'tg-off') {
     if (confirm('Отключить отправку в Telegram?')) DB.update((d) => { d.settings.telegramPrev = d.settings.telegram; delete d.settings.telegram; }); // прежние чаты вернутся при подключении того же бота
+  }
+  else if (act === 'mail-save') {
+    const to = mailList($('#mail-to').value);
+    const bad = to.filter((a) => !mailOk(a));
+    if (bad.length) return toast(`Проверьте адрес: ${bad[0]}`);
+    DB.update((d) => { d.settings.mail = { ...d.settings.mail, to: to.join(', ') }; });
+    toast(to.length ? `Сохранено адресов: ${to.length}` : 'Адреса очищены — письма не отправляются');
   }
   if (act === 'signin') Cloud.signInGoogle();
   else if (act === 'signin-email') signInEmailSheet();

@@ -3,7 +3,9 @@
 # Секрет FIREBASE_SA — ключ сервисного аккаунта Firebase (JSON целиком):
 #   консоль Firebase → настройки проекта → Service accounts → Generate new private key.
 # Бот и группа берутся из настроек приложения (в Firestore), отдельный токен здесь не нужен.
-name: Табель в группу
+# Почта (необязательно): секреты MAIL_USER (ящик-отправитель) и MAIL_PASS (его пароль приложения),
+#   MAIL_HOST — если ящик не Gmail (например smtp.yandex.ru). Получатели — в приложении: «Ещё» → «Почта».
+name: Табель в группу и на почту
 
 on:
   schedule:
@@ -30,10 +32,13 @@ jobs:
           node-version: 22
       - run: |
           sudo apt-get install -y -qq fonts-dejavu-core > /dev/null || true
-          npm install --no-save --no-audit --no-fund firebase-admin@14.5.0 @napi-rs/canvas@1.0.11
+          npm install --no-save --no-audit --no-fund firebase-admin@14.5.0 @napi-rs/canvas@1.0.11 nodemailer@6.9.16
       - run: node remind/send.mjs
         env:
           FIREBASE_SA: ${{ secrets.FIREBASE_SA }}
+          MAIL_USER: ${{ secrets.MAIL_USER }}
+          MAIL_PASS: ${{ secrets.MAIL_PASS }}
+          MAIL_HOST: ${{ secrets.MAIL_HOST || 'smtp.gmail.com' }}
           MODE: ${{ inputs.mode || 'auto' }}
           TZ: Europe/Minsk
       # Только для selftest: вымышленные данные (настоящий табель в артефакты не попадает — репозиторий публичный)

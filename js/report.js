@@ -261,5 +261,5 @@ const Reports = (() => {
   window.addEventListener('online', () => tick());
   document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
 
-  return { active, tick, share, sendTelegram, banner, summary };
+  return { active, tick, share, sendTelegram, banner, summary, files, periodCaption };
 })();
