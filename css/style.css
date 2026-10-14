@@ -1,27 +1,30 @@
 /* ================= Палитра ================= */
 /* «Лес» (только светлая тема): тёмно-зелёная шапка и меню, кремовые карточки, персиковые кнопки, коричневые акценты.
+   Правило цвета: зелёный = «выбрано», персиковая кнопка = «действие».
    Зелёный и розовый в клетках — заливки дневных и ночных смен из табеля Excel (смягчены);
-   цветом выделены только отклонения от графика. */
+   цветом выделены только отклонения от графика. Отпуск — бирюзовый, чтобы не путать с дневной сменой. */
 :root {
   --bg: #EEF0E8; --surface: #FFFDF8; --surface-2: #F1EEE4; --border: #E2DDCF;
   --text: #1E2B25; --muted: #66705F; --field-border: #B9B2A0;
-  --active-bg: #2F5D4E; --active-text: #FBF6EC;
   --brand: #2F5D4E; --brand-2: #234838; --on-brand: #F6EEDC; --on-brand-muted: #B9CCBF;
   --accent: #EBC9A2; --accent-2: #DDB283; --on-accent: #4A2E1F;
   --wood: #7A4B33; --wood-2: #5E3826; --on-wood: #F6E7D3;
+  --selected-soft: #E3EEE7;
   --day: #E4F1DA; --day-text: #3E6B2C; --night: #F3E3E8; --night-text: #8A3F63; --off: transparent;
   --sick: #2F6496; --sick-soft: #E2ECF4;
-  --vac: #3E6B2C; --vac-soft: #E4F1DA;
+  --vac: #0F6E78; --vac-soft: #DDF0F1;
   --absent: #B8382F; --absent-soft: #F8E6E1;
   --part: #8A5A1C; --part-soft: #F8EBD6;
   --extra: #5E4A9A; --extra-soft: #ECE7F6;
   --ok: #4C8A3A; --warn: #C08A3E; --err: #B8382F;
   --shadow: rgb(47 61 50 / .10); --scrim: rgb(20 30 25 / .45);
   --heading: #2F5D4E;
-  --radius: 20px;
+  /* Скейл скруглений: 12 / 16 / 20 / 28 / пилюля */
+  --r-s: 12px; --r-m: 16px; --r-l: 20px; --r-xl: 28px; --radius: var(--r-l);
   --touch: 48px;
   --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color-scheme: light;
+  accent-color: var(--brand);
 }
 
 * { box-sizing: border-box; }
@@ -36,17 +39,38 @@ button { cursor: pointer; }
 [hidden] { display: none !important; }
 svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
+/* Фокус с клавиатуры — виден всегда; на светлом и на зелёном фоне */
+:focus-visible { outline: 3px solid var(--accent-2); outline-offset: 2px; }
+.top :focus-visible, .nav :focus-visible { outline-color: var(--accent); }
+
+/* Отклик на нажатие: без него кнопки на телефоне ощущаются «мёртвыми» */
+.btn, .chip, .opt, .nav__btn, .sync { transition: transform .08s ease, background-color .12s ease; }
+.btn:active:not(:disabled), .chip:active, .opt:active, .sync:active { transform: scale(.97); }
+.nav__btn:active svg { transform: scale(.92); }
+.person:active, .upcoming__row:active { background: var(--surface-2); }
+@media (prefers-reduced-motion: reduce) {
+  .btn, .chip, .opt, .nav__btn, .sync { transition: none; }
+  .btn:active:not(:disabled), .chip:active, .opt:active, .sync:active, .nav__btn:active svg { transform: none; }
+}
+
 /* ================= Шапка и нижнее меню ================= */
+/* Узор из листьев в шапке — линиями, почти прозрачный, чтобы не мешал тексту */
 .top {
   position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px;
-  padding: calc(10px + env(safe-area-inset-top)) 16px 10px; background: var(--bg);
+  padding: calc(10px + env(safe-area-inset-top)) 16px 14px; margin-bottom: 14px;
+  background-color: var(--brand); color: var(--on-brand);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='80' viewBox='0 0 220 80' fill='none' stroke='%23F6EEDC' stroke-opacity='.24' stroke-width='1.6'%3E%3Cpath d='M120 70c10-40 40-62 80-64-4 40-34 64-80 64Zm0 0c22-20 44-38 76-60'/%3E%3Cpath d='M168 82c4-26 24-44 50-48-2 26-22 46-50 48Zm0 0c14-14 30-28 48-44'/%3E%3Cpath d='M92 30c16-18 38-24 58-18-12 18-36 26-58 18Zm0 0c18-4 38-10 56-18'/%3E%3C/svg%3E"),
+    linear-gradient(var(--brand), var(--brand)); /* однотонно: сверху стык со строкой состояния Android (theme-color = --brand) */
+  background-repeat: no-repeat; background-position: right top, 0 0; background-size: auto 100%, auto;
+  border-radius: 0 0 var(--r-xl) var(--r-xl); box-shadow: 0 6px 18px var(--shadow);
 }
-.top__title { flex: 1; font-size: 20px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top__title { flex: 1; font-size: 20px; font-weight: 700; letter-spacing: .2px; color: var(--on-brand); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sync {
   display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border-radius: 18px;
-  border: 1px solid var(--border); background: var(--surface); font-size: 13px; color: var(--muted);
+  background: rgb(255 255 255 / .12); border: 1px solid rgb(255 255 255 / .18); font-size: 13px; color: var(--on-brand);
 }
-.sync__dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+.sync__dot { width: 9px; height: 9px; border-radius: 50%; background: var(--on-brand-muted); box-shadow: 0 0 0 2px rgb(255 255 255 / .25); }
 .sync[data-state="saved"] .sync__dot { background: var(--ok); }
 .sync[data-state="syncing"] .sync__dot, .sync[data-state="offline"] .sync__dot, .sync[data-state="auth"] .sync__dot { background: var(--warn); }
 .sync[data-state="cloudError"] .sync__dot, .sync[data-state="error"] .sync__dot { background: var(--err); }
@@ -55,55 +79,101 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 
 .nav {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; display: flex;
-  background: var(--surface); border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom);
+  background: linear-gradient(180deg, var(--brand), var(--brand-2));
+  border-radius: var(--r-l) var(--r-l) 0 0; box-shadow: 0 -6px 18px var(--shadow); padding-bottom: env(safe-area-inset-bottom);
 }
 .nav__btn {
   flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0 10px;
-  border: 0; background: none; color: var(--muted); font-size: 12px;
+  border: 0; background: none; color: var(--on-brand-muted); font-size: 13px;
 }
-.nav__btn svg { width: 26px; height: 26px; padding: 2px 14px; box-sizing: content-box; border-radius: 14px; }
-.nav__btn.is-active { color: var(--text); font-weight: 600; }
-.nav__btn.is-active svg { background: var(--surface-2); }
+.nav__btn svg { width: 26px; height: 26px; padding: 2px 14px; box-sizing: content-box; border-radius: 14px; transition: transform .08s ease; }
+.nav__btn.is-active { color: var(--on-brand); font-weight: 600; }
+.nav__btn.is-active svg { background: var(--accent); color: var(--on-accent); }
+
+/* Экран «въезжает» при смене вкладки (свайп или нажатие на меню) */
+.view.is-enter-next { animation: view-in-next .2s ease-out; }
+.view.is-enter-prev { animation: view-in-prev .2s ease-out; }
+@keyframes view-in-next { from { opacity: 0; transform: translateX(28px); } }
+@keyframes view-in-prev { from { opacity: 0; transform: translateX(-28px); } }
+@media (prefers-reduced-motion: reduce) { .view.is-enter-next, .view.is-enter-prev { animation: none; } }
+
+/* Низкий экран (телефон в руке, ландшафт): шапка тоньше, в ландшафте не липнет */
+@media (max-height: 720px) {
+  .top { padding-top: calc(6px + env(safe-area-inset-top)); padding-bottom: 8px; margin-bottom: 8px; }
+  .tabel-wrap { max-height: calc(100dvh - 224px); }
+}
+@media (max-height: 480px) {
+  .top { position: static; }
+  .tabel-wrap { max-height: none; }
+  .nav__btn { flex-direction: row; justify-content: center; gap: 6px; padding: 6px 0; }
+  body { padding-bottom: calc(52px + env(safe-area-inset-bottom)); }
+}
 
 /* ================= Общие элементы ================= */
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
-.card h2 { margin: 0 0 4px; font-size: 17px; }
+.card { background: var(--surface); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+.card h2 { margin: 0 0 4px; font-size: 17px; color: var(--heading); font-weight: 750; }
 .card p { margin: 6px 0; }
+.card, .list, .tabel-wrap, .datebar__mid { box-shadow: 0 2px 4px var(--shadow), 0 8px 24px var(--shadow); }
 .muted { color: var(--muted); }
 .small { font-size: 14px; }
 .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .row--end { justify-content: flex-end; }
+.row--center { justify-content: center; }
+.row--nowrap { flex-wrap: nowrap; }
+.row--col { flex-direction: column; align-items: stretch; }
+.row--gap4 { gap: 4px; }
+.row--bottom { align-items: flex-end; }
+.row--undo { margin: -6px 2px 8px; }
 .grow { flex: 1; }
+
+/* Мелкие отступы и цвета, чтобы не писать style="" в разметке */
+.mt-8 { margin-top: 8px !important; }
+.mt-10 { margin-top: 10px !important; }
+.mt-12 { margin-top: 12px !important; }
+.mt-14 { margin-top: 14px !important; }
+.mb-8 { margin-bottom: 8px !important; }
+.mb-12 { margin-bottom: 12px !important; }
+.mt-0 { margin-top: 0 !important; }
+.text-err { color: var(--err); }
+.fw-normal { font-weight: 400; }
+.steps { padding-left: 20px; margin: 0 0 10px; }
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--touch);
-  padding: 0 18px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); font-weight: 600;
-  text-decoration: none;
+  padding: 0 16px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-weight: 600;
+  text-decoration: none; white-space: nowrap;
 }
-.btn--primary { background: var(--active-bg); color: var(--active-text); border-color: var(--active-bg); }
+.btn--primary {
+  background: linear-gradient(180deg, var(--accent), var(--accent-2)); color: var(--on-accent); border-color: transparent;
+  box-shadow: 0 4px 12px rgb(122 75 51 / .25);
+}
 .btn--danger { color: var(--absent); }
 .btn--block { width: 100%; }
-.btn--icon { width: var(--touch); padding: 0; }
+.btn--icon { width: var(--touch); padding: 0; border-radius: 50%; flex: none; }
 .btn svg { width: 20px; height: 20px; }
 .btn:disabled { opacity: .45; cursor: default; }
 .link { border: 0; background: none; padding: 4px 0; color: var(--text); text-decoration: underline; font-size: 14px; }
+.link--plain { text-decoration: none; text-align: left; }
 
 .field { display: block; margin: 12px 0; }
+.field--flush { margin: 0; }
+.field--tight { margin: 4px 0; }
 .field__label { display: block; font-size: 14px; color: var(--muted); margin-bottom: 4px; }
 .input {
-  width: 100%; min-height: var(--touch); padding: 10px 12px; border-radius: 10px;
+  width: 100%; min-height: var(--touch); padding: 10px 12px; border-radius: var(--r-m);
   border: 1px solid var(--field-border); background: var(--surface);
 }
+.input.grow { width: auto; }
 .input--short { width: 110px; }
 .check { display: flex; gap: 10px; align-items: flex-start; margin: 12px 0; }
 .check input { width: 22px; height: 22px; margin: 1px 0 0; flex: none; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
 .chip {
-  min-height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface-2);
+  min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2);
   font-size: 15px;
 }
-.chip.is-on { background: var(--active-bg); color: var(--active-text); border-color: var(--active-bg); }
+.chip.is-on { background: var(--brand); color: var(--on-brand); border-color: var(--brand); }
 
 .empty { text-align: center; padding: 28px 12px; color: var(--muted); }
 .empty b { display: block; color: var(--text); font-size: 17px; margin-bottom: 4px; }
@@ -111,7 +181,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 /* Значение клетки табеля: часы или код */
 .val {
   display: inline-flex; align-items: center; justify-content: center; min-width: 44px; height: 34px; padding: 0 8px;
-  border-radius: 10px; font-weight: 700; font-variant-numeric: tabular-nums;
+  border-radius: var(--r-s); font-weight: 700; font-variant-numeric: tabular-nums;
 }
 .val--Д { background: var(--day); color: var(--day-text); }
 .val--Н { background: var(--night); color: var(--night-text); }
@@ -126,20 +196,21 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .datebar { display: flex; align-items: stretch; gap: 8px; margin: 4px 0 12px; }
 .datebar__mid {
   flex: 1; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: 8px; text-align: center;
+  border-radius: var(--radius); background: var(--surface); padding: 8px; text-align: center;
 }
 .datebar__date { font-size: 18px; font-weight: 700; }
 .datebar__input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; border: 0; }
-.datebar .btn--icon { height: auto; min-height: 64px; border-radius: var(--radius); }
-.badge { display: inline-block; margin-top: 4px; padding: 2px 10px; border-radius: 10px; font-size: 13px; font-weight: 600; }
+.datebar .btn--icon { height: auto; min-height: 64px; border: 0; box-shadow: 0 2px 10px var(--shadow); }
+.badge { display: inline-block; margin-top: 4px; padding: 2px 10px; border-radius: var(--r-s); font-size: 13px; font-weight: 600; }
 .badge--Д { background: var(--day); color: var(--day-text); }
 .badge--Н { background: var(--night); color: var(--night-text); }
 .badge--В { background: var(--surface-2); color: var(--muted); }
+.badge--cell { margin: 0; min-width: 34px; text-align: center; }
 
 .summary { display: flex; align-items: baseline; gap: 8px; margin: 0 2px 10px; flex-wrap: wrap; }
 .summary__main { font-size: 17px; font-weight: 700; }
 
-.list { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.list { background: var(--surface); border-radius: var(--radius); overflow: hidden; }
 .person {
   display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 10px 14px;
   border: 0; border-bottom: 1px solid var(--border); background: none; text-align: left;
@@ -156,12 +227,13 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .list-head { margin: 18px 2px 8px; font-size: 14px; color: var(--muted); font-weight: 600; }
 
 .hint { font-size: 14px; color: var(--muted); margin: 12px 2px; }
+.hint--center { text-align: center; }
 
 /* ================= Табель ================= */
 .monthbar { display: flex; align-items: center; gap: 8px; margin: 4px 0 12px; }
 .monthbar__title { flex: 1; text-align: center; font-size: 18px; font-weight: 700; }
 .tabel-wrap {
-  overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+  overflow: auto; border-radius: var(--radius); background: var(--surface);
   max-height: calc(100dvh - 260px); -webkit-overflow-scrolling: touch;
 }
 .tabel { border-collapse: separate; border-spacing: 0; font-size: 13px; font-variant-numeric: tabular-nums; }
@@ -185,14 +257,22 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .tabel th.Н { color: var(--night-text); }
 .tabel th.is-today { box-shadow: inset 0 -3px 0 var(--text); }
 .tabel td.c { cursor: pointer; }
+.tabel td.c:active { filter: brightness(.94); }
 .tabel td.c--sick { color: var(--sick); font-weight: 700; }
-.tabel td.c--vac { color: var(--vac); font-weight: 700; }
+.tabel td.c--vac { color: var(--vac); font-weight: 700; box-shadow: inset 0 -3px 0 var(--vac); }
 .tabel td.c--absent { color: var(--absent); font-weight: 700; }
 .tabel td.c--part { color: var(--part); font-weight: 700; background-image: linear-gradient(var(--part-soft), var(--part-soft)); }
 .tabel td.c--extra { color: var(--extra); font-weight: 700; background: var(--extra-soft); }
-.legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 10px 2px; font-size: 13px; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 10px 2px; font-size: 14px; color: var(--muted); }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
-.legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.legend i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.legend .t-sick { color: var(--sick); }
+.legend .t-vac { color: var(--vac); }
+.legend .t-absent { color: var(--absent); }
+.legend .i-day { background: var(--day); }
+.legend .i-night { background: var(--night); }
+.legend .i-part { background: var(--part-soft); }
+.legend .i-extra { background: var(--extra-soft); }
 
 .notes { list-style: none; margin: 0; padding: 0; }
 .notes li { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
@@ -202,7 +282,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 /* ================= Нижний лист (окно) ================= */
 .sheet {
   width: 100%; max-width: 640px; max-height: 92dvh; margin: auto auto 0; padding: 0; border: 0;
-  border-radius: 20px 20px 0 0; background: var(--surface); color: var(--text);
+  border-radius: var(--r-xl) var(--r-xl) 0 0; background: var(--surface); color: var(--text);
 }
 .sheet::backdrop { background: var(--scrim); }
 .sheet__body { padding: 18px 16px calc(16px + env(safe-area-inset-bottom)); }
@@ -211,17 +291,18 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .sheet__sub { color: var(--muted); margin: 2px 0 14px; }
 .sheet__actions { display: flex; gap: 10px; margin-top: 18px; }
 .sheet__actions .btn { flex: 1; }
-@media (min-width: 700px) { .sheet { margin: auto; border-radius: 20px; } }
+@media (min-width: 700px) { .sheet { margin: auto; border-radius: var(--r-xl); } }
 
 .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.opts--one { grid-template-columns: 1fr; }
 .opt {
-  display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px 12px; border-radius: 12px;
+  display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px 12px; border-radius: var(--r-m);
   border: 1px solid var(--border); background: var(--surface); text-align: left; font-weight: 600;
 }
 .opt .val { min-width: 40px; height: 30px; }
-.opt.is-on { border-color: var(--text); box-shadow: inset 0 0 0 1px var(--text); }
+.opt.is-on { border-color: var(--brand); box-shadow: inset 0 0 0 1px var(--brand); background: var(--selected-soft); }
 .opt--wide { grid-column: 1 / -1; }
-.extra-box { margin-top: 12px; padding: 12px; border-radius: 12px; background: var(--surface-2); }
+.extra-box { margin-top: 12px; padding: 12px; border-radius: var(--r-s); background: var(--surface-2); }
 .extra-box .field { margin: 6px 0; }
 .stepper { display: flex; align-items: center; gap: 8px; }
 .stepper .input { text-align: center; font-weight: 700; font-size: 20px; }
@@ -229,23 +310,27 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 /* ================= Уведомление ================= */
 .toast {
   position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 20;
-  max-width: calc(100% - 32px); padding: 12px 18px; border-radius: 12px; background: var(--active-bg); color: var(--active-text);
+  max-width: calc(100% - 32px); padding: 12px 18px; border-radius: 999px; background: var(--brand); color: var(--on-brand);
   box-shadow: 0 6px 20px var(--shadow); font-size: 15px;
 }
 
 /* ================= Плашка снимка табеля ================= */
+/* «Деревянная» карточка */
 .report {
   display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 12px 12px 12px 16px;
-  border-radius: var(--radius); background: var(--surface); border: 2px solid var(--active-bg);
+  border-radius: var(--radius); color: var(--on-wood);
+  background: linear-gradient(150deg, var(--wood), var(--wood-2)); box-shadow: 0 8px 22px rgb(94 56 38 / .3);
 }
 .report .small { font-size: 13px; }
+.report .muted { color: var(--on-wood); opacity: .75; }
+.report .btn:not(.btn--primary) { background: rgb(255 255 255 / .12); border-color: rgb(255 255 255 / .2); color: var(--on-wood); }
 
 /* ================= Быстрая отметка на экране «Смена» ================= */
 .qf h2 { margin-bottom: 8px; }
 .qf .field { margin: 8px 0 12px; }
 .qf select.input { appearance: auto; font-weight: 600; }
 .chips--grid { display: grid; grid-template-columns: 1fr 1fr; }
-.chips--grid .chip { min-height: 48px; border-radius: 12px; }
+.chips--grid .chip { min-height: 48px; border-radius: var(--r-m); }
 .marked { display: flex; align-items: center; border-bottom: 1px solid var(--border); }
 .marked:last-child { border-bottom: 0; }
 .marked .person { border-bottom: 0; flex: 1; min-width: 0; }
@@ -271,60 +356,3 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 }
 .app-error b { font-size: 18px; }
 .app-error p { color: var(--muted); }
-
-/* ================= Тема «Лес»: шапка, меню, карточки, кнопки ================= */
-/* Узор из листьев в шапке — линиями, почти прозрачный, чтобы не мешал тексту */
-.top {
-  background-color: var(--brand); color: var(--on-brand);
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='80' viewBox='0 0 220 80' fill='none' stroke='%23F6EEDC' stroke-opacity='.24' stroke-width='1.6'%3E%3Cpath d='M120 70c10-40 40-62 80-64-4 40-34 64-80 64Zm0 0c22-20 44-38 76-60'/%3E%3Cpath d='M168 82c4-26 24-44 50-48-2 26-22 46-50 48Zm0 0c14-14 30-28 48-44'/%3E%3Cpath d='M92 30c16-18 38-24 58-18-12 18-36 26-58 18Zm0 0c18-4 38-10 56-18'/%3E%3C/svg%3E"),
-    linear-gradient(var(--brand), var(--brand)); /* однотонно: сверху стык со строкой состояния Android (theme-color = --brand) */
-  background-repeat: no-repeat; background-position: right top, 0 0; background-size: auto 100%, auto;
-  border-radius: 0 0 24px 24px; margin-bottom: 14px; padding-bottom: 14px;
-  box-shadow: 0 6px 18px var(--shadow);
-}
-.top__title { color: var(--on-brand); letter-spacing: .2px; }
-.sync { background: rgb(255 255 255 / .12); border-color: rgb(255 255 255 / .18); color: var(--on-brand); }
-.sync__dot { box-shadow: 0 0 0 2px rgb(255 255 255 / .25); }
-
-.nav {
-  background: linear-gradient(180deg, var(--brand), var(--brand-2)); border-top: 0;
-  border-radius: 22px 22px 0 0; box-shadow: 0 -6px 18px var(--shadow);
-}
-.nav__btn { color: var(--on-brand-muted); }
-.nav__btn.is-active { color: var(--on-brand); }
-.nav__btn.is-active svg { background: var(--accent); color: var(--on-accent); }
-
-.card, .list, .tabel-wrap, .datebar__mid {
-  border: 0; box-shadow: 0 2px 4px var(--shadow), 0 8px 24px var(--shadow);
-}
-.card h2 { color: var(--heading); font-weight: 750; }
-.datebar .btn--icon { border: 0; box-shadow: 0 2px 10px var(--shadow); }
-
-.btn { border-radius: 999px; white-space: nowrap; padding: 0 16px; }
-:root { accent-color: var(--brand); }
-.btn--primary {
-  background: linear-gradient(180deg, var(--accent), var(--accent-2)); color: var(--on-accent); border-color: transparent;
-  box-shadow: 0 4px 12px rgb(122 75 51 / .25);
-}
-.btn--icon { border-radius: 50%; padding: 0; flex: none; }
-.input { border-radius: 14px; background: var(--surface); }
-.chip { border-radius: 999px; }
-.chip.is-on { background: var(--brand); color: var(--on-brand); border-color: var(--brand); }
-.chips--grid .chip { border-radius: 16px; }
-.opt { border-radius: 16px; }
-.opt.is-on { border-color: var(--heading); box-shadow: inset 0 0 0 1px var(--heading); }
-
-/* Плашка «Отправить табель» — «деревянная» карточка */
-.report {
-  border: 0; color: var(--on-wood);
-  background: linear-gradient(150deg, var(--wood), var(--wood-2)); box-shadow: 0 8px 22px rgb(94 56 38 / .3);
-}
-.report .muted { color: var(--on-wood); opacity: .75; }
-.report .btn:not(.btn--primary) { background: rgb(255 255 255 / .12); border-color: rgb(255 255 255 / .2); color: var(--on-wood); }
-
-
-.sheet { border-radius: 28px 28px 0 0; }
-@media (min-width: 700px) { .sheet { border-radius: 28px; } }
-.toast { border-radius: 999px; background: var(--brand); color: var(--on-brand); }
-.legend i { border-radius: 50%; }

@@ -113,12 +113,12 @@ function renderShift() {
       </label>
       <button class="btn btn--icon" data-act="next" type="button" aria-label="Следующий день">${ICON.right}</button>
     </div>`;
-  if (d !== Sched.current()) html += `<div class="row row--end" style="margin:-6px 2px 8px"><button class="link" data-act="today" type="button">Текущая смена</button></div>`;
+  if (d !== Sched.current()) html += `<div class="row row--end row--undo"><button class="link" data-act="today" type="button">Текущая смена</button></div>`;
   html += Reports.banner();
 
   if (!people.length) {
     html += `<div class="card empty"><b>Пока никого нет</b>Загрузите прошлый табель — подтянутся люди и отметки.
-      <div class="row" style="justify-content:center;margin-top:14px">
+      <div class="row row--center mt-14">
         <button class="btn btn--primary" data-act="import" type="button">${ICON.file} Загрузить табель Excel</button>
         <button class="btn" data-act="people" type="button">Добавить вручную</button>
       </div></div>`;
@@ -204,10 +204,10 @@ function quickForm(d, t, people, map) {
   };
   let extra = '';
   if (r?.v === 'part') {
-    extra = `<div class="row" style="margin-top:10px;align-items:flex-end">
-        <label class="field" style="margin:0"><span class="field__label">Отработал часов</span>
+    extra = `<div class="row mt-10 row--bottom">
+        <label class="field field--flush"><span class="field__label">Отработал часов</span>
           <input class="input input--short" id="qf-hours" type="number" inputmode="decimal" min="0" max="24" step="0.5" value="${esc(q.hours ?? quickDefHours(t))}"></label>
-        ${t !== 'В' ? `<label class="field grow" style="margin:0"><span class="field__label">Причина (в примечание)</span>
+        ${t !== 'В' ? `<label class="field grow field--flush"><span class="field__label">Причина (в примечание)</span>
           <input class="input" id="qf-text" value="${esc(q.text || '')}" placeholder="например, заявление" autocomplete="off"></label>` : ''}
       </div>`;
   }
@@ -216,9 +216,9 @@ function quickForm(d, t, people, map) {
     const from = q.from || d;
     extra += `${r.k === 'other' ? `<label class="field"><span class="field__label">Причина (в примечание)</span>
       <input class="input" id="qf-text" value="${esc(q.text || '')}" placeholder="что случилось" autocomplete="off"></label>` : ''}
-      <div class="row" style="flex-wrap:nowrap">
-        <label class="field grow" style="margin:4px 0"><span class="field__label">С</span><input class="input" id="qf-from" type="date" value="${esc(from)}"></label>
-        <label class="field grow" style="margin:4px 0"><span class="field__label">По (включительно)</span><input class="input" id="qf-until" type="date" min="${esc(from)}" value="${esc(q.until && q.until > from ? q.until : from)}"></label>
+      <div class="row row--nowrap">
+        <label class="field grow field--tight"><span class="field__label">С</span><input class="input" id="qf-from" type="date" value="${esc(from)}"></label>
+        <label class="field grow field--tight"><span class="field__label">По (включительно)</span><input class="input" id="qf-until" type="date" min="${esc(from)}" value="${esc(q.until && q.until > from ? q.until : from)}"></label>
       </div>
       <div class="small muted">${from > Dates.today() ? 'Будущая дата — бот напишет вам в личку, в «Скоро не будет» появится запись.' : 'Отметка встанет на все смены по графику в этом промежутке.'}</div>`;
   }
@@ -233,7 +233,7 @@ function quickForm(d, t, people, map) {
     <div class="field__label">${t === 'В' ? 'Когда выходил' : 'Причина'}</div>
     <div class="chips chips--grid">${reasons.map((x) => `<button class="chip${q.reason === x.k ? ' is-on' : ''}" data-qr="${x.k}" type="button">${esc(x.label)}</button>`).join('')}</div>
     ${extra}
-    <button class="btn btn--primary btn--block" style="margin-top:12px" data-act="qf-save" type="button" ${ready ? '' : 'disabled'}>Отметить</button>
+    <button class="btn btn--primary btn--block mt-12" data-act="qf-save" type="button" ${ready ? '' : 'disabled'}>Отметить</button>
   </div>`;
 }
 
@@ -424,7 +424,7 @@ function openEditor(pid, date) {
       <p class="sheet__sub">${esc(dateTitle(date, true))} · ${esc(typeLabel(t))}</p>
       <div class="opts">${opts.map((o) => `<button class="opt${o.k === sel ? ' is-on' : ''}${o.wide ? ' opt--wide' : ''}" data-opt="${esc(o.k)}" type="button">${optVal(o)}<span>${esc(o.label)}</span></button>`).join('')}</div>
       ${extra()}
-      ${mark ? `<button class="btn btn--block" style="margin-top:12px" data-reset type="button">Вернуть по графику${Tabel.def(date) ? ` (${Tabel.def(date)} ч)` : ' (пусто, день не наступил)'}</button>` : ''}
+      ${mark ? `<button class="btn btn--block mt-12" data-reset type="button">Вернуть по графику${Tabel.def(date) ? ` (${Tabel.def(date)} ч)` : ' (пусто, день не наступил)'}</button>` : ''}
       <div class="sheet__actions"><button class="btn" value="cancel">Отмена</button><button class="btn btn--primary" data-save type="button">Сохранить</button></div>`, bind);
   };
 
@@ -490,7 +490,7 @@ function renderTabel() {
       <div class="monthbar__title">${esc(Dates.monthTitle(ym))}</div>
       <button class="btn btn--icon" data-act="next" type="button" aria-label="Следующий месяц">${ICON.right}</button>
     </div>
-    <div class="row" style="margin-bottom:12px">
+    <div class="row mb-12">
       <button class="btn btn--primary grow" data-act="xlsx" type="button" aria-label="Скачать Excel">${ICON.file} Excel</button>
       ${canShare ? `<button class="btn grow" data-act="share" type="button">${ICON.share} Отправить</button>` : ''}
       <button class="btn btn--icon" data-act="clear" type="button" aria-label="Очистить" title="Очистить часы и отметки">${ICON.trash}</button>
@@ -521,17 +521,17 @@ function renderTabel() {
       <tr><th class="name"></th>${head3}<th class="tot"></th></tr></thead>
       <tbody>${body}</tbody></table></div>
     <div class="legend">
-      <span><i style="background:var(--day)"></i>день</span><span><i style="background:var(--night)"></i>ночь</span>
-      <span style="color:var(--sick)">Б — больничный</span><span style="color:var(--vac)">ОТ — отпуск</span>
-      <span style="color:var(--absent)">− отсутствие</span><span><i style="background:var(--part-soft)"></i>неполная</span>
-      <span><i style="background:var(--extra-soft)"></i>сверх графика</span>
+      <span><i class="i-day"></i>день</span><span><i class="i-night"></i>ночь</span>
+      <span class="t-sick">Б — больничный</span><span class="t-vac">ОТ — отпуск</span>
+      <span class="t-absent">− отсутствие</span><span><i class="i-part"></i>неполная</span>
+      <span><i class="i-extra"></i>сверх графика</span>
     </div>`;
 
   const notes = Tabel.notesOf(ym);
   html += `<div class="card"><h2>Примечания</h2>
     <p class="small muted">Строки под табелем. Причины из отметок попадают сюда сами.</p>
     <ul class="notes">${notes.map((n) => `<li><span class="grow">${esc(n.text)}</span>${n.id ? `<button class="btn btn--icon" data-del-note="${n.id}" type="button" aria-label="Удалить">${ICON.x}</button>` : '<span class="tag">по отметке</span>'}</li>`).join('') || '<li class="muted">Пока нет</li>'}</ul>
-    <div class="row" style="margin-top:10px"><input class="input grow" id="note-text" placeholder="Своё примечание" autocomplete="off" style="flex:1;width:auto">
+    <div class="row mt-10"><input class="input grow" id="note-text" placeholder="Своё примечание" autocomplete="off">
       <button class="btn" data-act="note" type="button">Добавить</button></div></div>`;
 
   el.innerHTML = html;
@@ -562,7 +562,7 @@ $('#view-tabel').addEventListener('click', async (e) => {
     };
     if (!Telegram.ready()) { viaShare(); return; }
     openSheet(`<h3>Отправить табель</h3><p class="sheet__sub">${esc(name)} · картинка и Excel</p>
-      <div class="row" style="flex-direction:column;align-items:stretch">
+      <div class="row row--col">
         <button class="btn btn--primary" data-tg type="button">В Telegram: «${esc(Telegram.cfg().chatTitle || "группа")}»${Telegram.fullReady() ? ` + «${esc(Telegram.cfg().fullChatTitle)}»` : ""}</button>
         <button class="btn" data-share type="button">${ICON.share} Через «Поделиться»</button>
       </div>
@@ -623,16 +623,16 @@ function clearTabel() {
     const { n } = affected();
     openSheet(`<h3>Очистить табель</h3><p class="sheet__sub">${esc(Dates.monthTitle(ym))}</p>
       <div class="row">
-        <label class="field grow" style="margin:4px 0"><span class="field__label">С</span><input class="input" id="cl-from" type="date" min="${days[0]}" max="${days.at(-1)}" value="${w.from}"></label>
-        <label class="field grow" style="margin:4px 0"><span class="field__label">По</span><input class="input" id="cl-to" type="date" min="${days[0]}" max="${days.at(-1)}" value="${w.to}"></label>
+        <label class="field grow field--tight"><span class="field__label">С</span><input class="input" id="cl-from" type="date" min="${days[0]}" max="${days.at(-1)}" value="${w.from}"></label>
+        <label class="field grow field--tight"><span class="field__label">По</span><input class="input" id="cl-to" type="date" min="${days[0]}" max="${days.at(-1)}" value="${w.to}"></label>
       </div>
       <label class="field"><span class="field__label">Кого</span>
         <select class="input" id="cl-pid"><option value="">Всех</option>${people.map((p) => `<option value="${p.id}"${w.pid === p.id ? ' selected' : ''}>${esc(Tabel.shortName(p))}</option>`).join('')}</select></label>
-      <div class="opts" style="grid-template-columns:1fr">
-        <button class="opt${w.mode === 'restore' ? ' is-on' : ''}" data-mode="restore" type="button"><span>Вернуть по графику<br><span class="small muted" style="font-weight:400">убрать отметки, часы снова по графику</span></span></button>
-        <button class="opt${w.mode === 'empty' ? ' is-on' : ''}" data-mode="empty" type="button"><span>Сделать клетки пустыми<br><span class="small muted" style="font-weight:400">без часов и отметок</span></span></button>
+      <div class="opts opts--one">
+        <button class="opt${w.mode === 'restore' ? ' is-on' : ''}" data-mode="restore" type="button"><span>Вернуть по графику<br><span class="small muted fw-normal">убрать отметки, часы снова по графику</span></span></button>
+        <button class="opt${w.mode === 'empty' ? ' is-on' : ''}" data-mode="empty" type="button"><span>Сделать клетки пустыми<br><span class="small muted fw-normal">без часов и отметок</span></span></button>
       </div>
-      <p class="small ${n ? '' : 'muted'}" style="margin:12px 0 0">${n ? `Изменится клеток: <b>${n}</b>` : 'Нечего очищать в этом периоде'}</p>
+      <p class="small ${n ? '' : 'muted'} mt-12">${n ? `Изменится клеток: <b>${n}</b>` : 'Нечего очищать в этом периоде'}</p>
       <div class="sheet__actions"><button class="btn" value="cancel">Отмена</button><button class="btn btn--primary" data-go type="button" ${n ? '' : 'disabled'}>Очистить</button></div>`, (b) => {
       b.onchange = (e) => {
         if (e.target.id === 'cl-from' && e.target.value) w.from = e.target.value;
@@ -669,7 +669,7 @@ function renderPeople() {
   const active = all.filter((p) => !p.archived);
   const archived = all.filter((p) => p.archived);
   const row = (p, i, list) => `<div class="person">
-      <button class="person__info link" style="text-decoration:none;text-align:left" data-edit="${p.id}" type="button">
+      <button class="person__info link link--plain" data-edit="${p.id}" type="button">
         <span class="person__name">${esc(p.name)}</span><br><span class="person__sub">${esc(p.position || 'должность не указана')}</span></button>
       ${p.archived ? `<button class="btn" data-restore="${p.id}" type="button">Вернуть</button>`
         : `<span class="person__move"><button class="btn btn--icon" data-up="${p.id}" type="button" aria-label="Выше" ${i === 0 ? 'disabled' : ''}>${ICON.up}</button>
@@ -678,7 +678,7 @@ function renderPeople() {
   el.innerHTML = `
     <div class="summary"><span class="summary__main">${esc(DB.data.settings.shiftName)}: ${active.length} чел.</span></div>
     ${active.length ? `<div class="list">${active.map(row).join('')}</div>` : '<div class="card empty"><b>Список пуст</b>Добавьте людей или загрузите прошлый табель.</div>'}
-    <div class="row" style="margin-top:12px">
+    <div class="row mt-12">
       <button class="btn grow" data-act="add" type="button">${ICON.plus} Добавить</button>
       <button class="btn grow" data-act="import" type="button">${ICON.file} Из табеля Excel</button>
     </div>
@@ -775,7 +775,7 @@ async function importXlsx(file, year) {
       <li>Примечаний: ${parsed.notes.length + parsed.free.length}</li>
     </ul>
     ${differs ? `<label class="check"><input type="checkbox" id="im-anchor" checked><span>График в табеле не совпадает с настройкой приложения — взять график из табеля (строка «Смена»).</span></label>` : ''}
-    ${existing ? `<p class="small" style="color:var(--absent)">Отметки за этот месяц в приложении (${existing}) будут заменены данными из файла.</p>` : ''}
+    ${existing ? `<p class="small text-err">Отметки за этот месяц в приложении (${existing}) будут заменены данными из файла.</p>` : ''}
     <div class="sheet__actions"><button class="btn" value="cancel">Отмена</button><button class="btn btn--primary" data-go type="button">Загрузить</button></div>`, (b) => {
     $('#im-year', b).onchange = (ev) => importXlsx(file, Number(ev.target.value));
     b.onclick = (ev) => {
@@ -804,15 +804,15 @@ function renderMore() {
     const stText = { saved: 'всё сохранено в облаке', syncing: 'отправляю изменения…', offline: 'нет сети — изменения уйдут, когда она появится', cloudError: 'ошибка' }[st.state] || '';
     cloud = `<p>Вход: <b>${esc(od.account || 'выполнен')}</b></p>
       <p class="small muted">Сейчас: ${esc(stText)}${od.lastSync ? `<br>Последняя сверка: ${esc(fmt(od.lastSync))}` : ''}</p>
-      ${od.error ? `<p class="small" style="color:var(--err)">${esc(od.error)}</p>` : ''}
-      ${od.isOwner ? '' : '<p class="small" style="color:var(--err)">Это не аккаунт владельца табеля: автоотправка и напоминания по расписанию работают только с аккаунтом владельца.</p>'}
+      ${od.error ? `<p class="small text-err">${esc(od.error)}</p>` : ''}
+      ${od.isOwner ? '' : '<p class="small text-err">Это не аккаунт владельца табеля: автоотправка и напоминания по расписанию работают только с аккаунтом владельца.</p>'}
       <p class="small muted">ID аккаунта: <code>${esc(od.uid)}</code> <button class="link" data-act="copy-uid" type="button">копировать</button></p>
       <button class="btn btn--block" data-act="signout" type="button">Выйти</button>`;
   } else {
     cloud = `<p class="small muted">Табель хранится в облаке Firebase: не пропадёт при смене телефона, а табель 16-го и 1-го уйдёт в группу, даже если приложение не открывать. Войти нужно один раз.</p>
-      ${od.error ? `<p class="small" style="color:var(--err)">${esc(od.error)}</p>` : ''}
+      ${od.error ? `<p class="small text-err">${esc(od.error)}</p>` : ''}
       <button class="btn btn--primary btn--block" data-act="signin" type="button">Войти через Google</button>
-      <button class="link" style="margin-top:8px" data-act="signin-email" type="button">Войти по почте и паролю</button>`;
+      <button class="link mt-8" data-act="signin-email" type="button">Войти по почте и паролю</button>`;
   }
 
   const next = Array.from({ length: 8 }, (_, i) => Dates.add(Dates.today(), i));
@@ -832,18 +832,18 @@ function renderMore() {
         <label class="field grow"><span class="field__label">Часов ночью</span><input class="input" id="st-night" type="number" inputmode="decimal" min="1" max="24" step="0.5" value="${s.nightHours}"></label>
       </div>
       <div class="field__label">Ближайшие дни</div>
-      <div class="row" style="gap:4px">${next.map((d) => `<span class="badge badge--${Sched.type(d)}" style="margin:0;min-width:34px;text-align:center">${Number(d.slice(8))}<br>${Sched.type(d)}</span>`).join('')}</div>
-      <button class="btn btn--primary btn--block" style="margin-top:14px" data-act="settings" type="button">Сохранить график</button>
+      <div class="row row--gap4">${next.map((d) => `<span class="badge badge--${Sched.type(d)} badge--cell">${Number(d.slice(8))}<br>${Sched.type(d)}</span>`).join('')}</div>
+      <button class="btn btn--primary btn--block mt-14" data-act="settings" type="button">Сохранить график</button>
     </div>
 
     <div class="card"><h2>Данные</h2>
-      <div class="row" style="flex-direction:column;align-items:stretch">
+      <div class="row row--col">
         <button class="btn" data-act="import" type="button">${ICON.file} Загрузить табель Excel</button>
         <button class="btn" data-act="backup" type="button">Сохранить копию данных (.json)</button>
         <button class="btn" data-act="restore" type="button">Восстановить из копии</button>
       </div>
     </div>
-    <p class="hint" style="text-align:center">Табель смены · версия ${APP_VERSION}</p>`;
+    <p class="hint hint--center">Табель смены · версия ${APP_VERSION}</p>`;
 }
 
 // Запасной вход в облако — по почте и паролю (если вход через Google на телефоне не открывается).
@@ -854,7 +854,7 @@ function signInEmailSheet() {
     <label class="field"><span class="field__label">Почта</span><input class="input" id="em-email" type="email" autocomplete="username" value="${esc(w.email)}"></label>
     <label class="field"><span class="field__label">Пароль</span><input class="input" id="em-pass" type="password" autocomplete="${w.create ? 'new-password' : 'current-password'}" value="${esc(w.pass)}"></label>
     <label class="check"><input type="checkbox" id="em-create" ${w.create ? 'checked' : ''}><span>Создать вход (первый раз)</span></label>
-    ${w.error ? `<p class="small" style="color:var(--err)">${esc(w.error)}</p>` : ''}
+    ${w.error ? `<p class="small text-err">${esc(w.error)}</p>` : ''}
     <div class="sheet__actions"><button class="btn" value="cancel">Отмена</button><button class="btn btn--primary" data-save type="button" ${w.busy ? 'disabled' : ''}>Войти</button></div>`, (b) => {
     b.oninput = (e) => {
       if (e.target.id === 'em-email') w.email = e.target.value.trim();
@@ -897,9 +897,9 @@ function telegramCard() {
   const full = Telegram.fullReady();
   return `<p>${full ? 'Группа (только картинка табеля)' : 'Группа'}: <b>${esc(tg.chatTitle || tg.chatId)}</b>${tg.botName ? `<br><span class="small muted">Бот @${esc(tg.botName)}</span>` : ''}</p>
     <p>Полный табель (картинка, Excel, примечания): ${full ? `<b>${esc(tg.fullChatTitle || tg.fullChatId)}</b>` : '<span class="muted">не выбран — всё уходит в группу</span>'}</p>
-    <button class="btn btn--block" style="margin-bottom:8px" data-act="tg-full" type="button">${full ? 'Сменить чат для полного табеля' : 'Выбрать чат для полного табеля'}</button>
+    <button class="btn btn--block mb-8" data-act="tg-full" type="button">${full ? 'Сменить чат для полного табеля' : 'Выбрать чат для полного табеля'}</button>
     <label class="check"><input type="checkbox" id="tg-auto" ${tg.auto !== false ? 'checked' : ''}><span>Отправлять автоматически 16-го и 1-го числа</span></label>
-    <button class="btn btn--block" style="margin-bottom:8px" data-act="tg-me" type="button">Уведомления мне${tg.meId ? " ✓" : ""}</button>
+    <button class="btn btn--block mb-8" data-act="tg-me" type="button">Уведомления мне${tg.meId ? " ✓" : ""}</button>
     <div class="row"><button class="btn grow" data-act="tg-test" type="button">Пробное сообщение</button>
       <button class="btn" data-act="tg-setup" type="button">Сменить</button>
       <button class="btn btn--danger" data-act="tg-off" type="button">Отключить</button></div>`;
@@ -911,16 +911,16 @@ function telegramFull() {
   const w = { chats: null, busy: false, error: '' };
   const draw = () => openSheet(`<h3>Чат для полного табеля</h3>
     <p class="sheet__sub">Сюда — картинка, Excel и примечания. В группу «${esc(tg.chatTitle || tg.chatId)}» — только картинка с подписью за какой месяц и период.</p>
-    <ol class="small" style="padding-left:20px;margin:0 0 10px">
+    <ol class="small steps">
       <li>Если это другая группа — добавьте в неё бота${tg.botName ? ` <b>@${esc(tg.botName)}</b>` : ''}. Если ваш личный чат — напишите боту любое сообщение.</li>
       <li>Нажмите «Найти чаты» и выберите нужный.</li>
     </ol>
     <button class="btn btn--primary btn--block" data-find type="button" ${w.busy ? 'disabled' : ''}>Найти чаты</button>
     ${w.chats ? (w.chats.filter((c) => String(c.id) !== String(tg.chatId)).length
-      ? `<div class="list" style="margin-top:10px">${w.chats.filter((c) => String(c.id) !== String(tg.chatId)).map((c) => `<button class="person" data-chat="${esc(c.id)}" type="button"><span class="person__info"><span class="person__name">${esc(c.title)}</span></span>${String(c.id) === String(tg.fullChatId) ? '<span class="small">выбран ✓</span>' : ''}</button>`).join('')}</div>`
-      : '<p class="small" style="color:var(--err)">Других чатов не нашёл. Напишите боту (или в группе с упоминанием бота) и нажмите ещё раз.</p>') : ''}
-    ${w.error ? `<p class="small" style="color:var(--err)">${esc(w.error)}</p>` : ''}
-    ${tg.fullChatId ? '<button class="btn btn--danger btn--block" style="margin-top:12px" data-clear type="button">Не нужен — всё снова в группу</button>' : ''}
+      ? `<div class="list mt-10">${w.chats.filter((c) => String(c.id) !== String(tg.chatId)).map((c) => `<button class="person" data-chat="${esc(c.id)}" type="button"><span class="person__info"><span class="person__name">${esc(c.title)}</span></span>${String(c.id) === String(tg.fullChatId) ? '<span class="small">выбран ✓</span>' : ''}</button>`).join('')}</div>`
+      : '<p class="small text-err">Других чатов не нашёл. Напишите боту (или в группе с упоминанием бота) и нажмите ещё раз.</p>') : ''}
+    ${w.error ? `<p class="small text-err">${esc(w.error)}</p>` : ''}
+    ${tg.fullChatId ? '<button class="btn btn--danger btn--block mt-12" data-clear type="button">Не нужен — всё снова в группу</button>' : ''}
     <div class="sheet__actions"><button class="btn" value="cancel">Закрыть</button></div>`, (b) => {
     b.onclick = async (e) => {
       if (w.busy) return;
@@ -958,22 +958,22 @@ function telegramSetup() {
   const w = { token: Telegram.cfg().token || '', bot: null, groups: null, busy: false, error: '' };
   const draw = () => openSheet(`<h3>Подключить Telegram</h3>
     <p class="sheet__sub">Один раз, займёт пару минут.</p>
-    <ol class="small" style="padding-left:20px;margin:0 0 8px">
+    <ol class="small steps">
       <li>В Telegram откройте <b>@BotFather</b>, отправьте <b>/newbot</b>, придумайте имя и адрес бота (на «bot» в конце).</li>
       <li>BotFather пришлёт токен — длинную строку вида <code>123456:ABC…</code>. Скопируйте её сюда.</li>
     </ol>
     <label class="field"><span class="field__label">Токен бота</span>
       <input class="input" id="tg-token" value="${esc(w.token)}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="123456789:AA…"></label>
     ${w.bot ? `<p>Бот найден: <b>@${esc(w.bot.username)}</b></p>
-      <ol class="small" start="3" style="padding-left:20px;margin:0 0 8px">
+      <ol class="small steps" start="3">
         <li>Добавьте бота в группу (в группе: участники → добавить → найдите @${esc(w.bot.username)}). Для пробы можно просто написать боту в личку — потом группу легко сменить.</li>
         <li>Нажмите «Найти группу».</li>
       </ol>
       <button class="btn btn--block" data-find type="button" ${w.busy ? 'disabled' : ''}>Найти группу или чат</button>` : `<button class="btn btn--primary btn--block" data-check type="button" ${w.busy ? 'disabled' : ''}>Проверить токен</button>`}
     ${w.groups ? (w.groups.length
       ? `<div class="list-head">Куда отправлять</div><div class="list">${w.groups.map((g) => `<button class="person" data-chat="${esc(g.id)}" type="button" ${w.busy ? 'disabled' : ''}><span class="person__info"><span class="person__name">${esc(g.title)}</span></span></button>`).join('')}</div>`
-      : `<p class="small" style="color:var(--err)">Чат не найден. Добавьте бота в группу или напишите ему в личку (если он уже в группе — напишите там сообщение с упоминанием @${esc(w.bot.username)}) и нажмите «Найти группу» ещё раз.</p>`) : ''}
-    ${w.error ? `<p class="small" style="color:var(--err)">${esc(w.error)}</p>` : ''}
+      : `<p class="small text-err">Чат не найден. Добавьте бота в группу или напишите ему в личку (если он уже в группе — напишите там сообщение с упоминанием @${esc(w.bot.username)}) и нажмите «Найти группу» ещё раз.</p>`) : ''}
+    ${w.error ? `<p class="small text-err">${esc(w.error)}</p>` : ''}
     <div class="sheet__actions"><button class="btn" value="cancel">Закрыть</button></div>`, (b) => {
     b.oninput = (e) => { if (e.target.id === 'tg-token') { w.token = e.target.value.trim(); } };
     b.onclick = async (e) => {
@@ -1021,19 +1021,19 @@ function telegramMe() {
     const me = Telegram.cfg().meId;
     openSheet(`<h3>Уведомления мне</h3>
     <p class="sheet__sub">Бот будет писать вам лично: кого не будет в будущие дни (заявления, отпуск, больничный), а также напоминания о сменах.</p>
-    <ol class="small" style="padding-left:20px;margin:0 0 10px">
+    <ol class="small steps">
       <li>Откройте в Telegram чат с ботом${bot ? ` <b>@${esc(bot)}</b>` : ''} и нажмите <b>«Старт»</b> (или отправьте ему любое сообщение).</li>
       <li>Нажмите «Найти мой чат» и выберите его.</li>
     </ol>
     <button class="btn btn--primary btn--block" data-find type="button" ${w.busy ? 'disabled' : ''}>Найти мой чат</button>
-    ${w.chats ? (w.chats.length ? w.chats.map((c) => `<div class="card" style="margin:10px 0 0">
+    ${w.chats ? (w.chats.length ? w.chats.map((c) => `<div class="card mt-10">
         <div>${esc(c.title)}${String(me) === String(c.id) ? ' · <b>выбран ✓</b>' : ''}</div>
         <div class="small muted">Номер для GitHub (TG_CHAT): <b>${esc(c.id)}</b></div>
-        <div class="row" style="margin-top:8px">
+        <div class="row mt-8">
           ${String(me) === String(c.id) ? '' : `<button class="btn btn--primary grow" data-pick="${esc(c.id)}" type="button">Присылать сюда</button>`}
           <button class="btn grow" data-copy="${esc(c.id)}" type="button">Копировать номер</button></div></div>`).join('')
-      : '<p class="small" style="color:var(--err)">Не нашёл. Напишите боту любое сообщение и нажмите ещё раз.</p>') : ''}
-    ${w.error ? `<p class="small" style="color:var(--err)">${esc(w.error)}</p>` : ''}
+      : '<p class="small text-err">Не нашёл. Напишите боту любое сообщение и нажмите ещё раз.</p>') : ''}
+    ${w.error ? `<p class="small text-err">${esc(w.error)}</p>` : ''}
     <div class="sheet__actions"><button class="btn" value="cancel">Закрыть</button></div>`, (b) => {
       b.onclick = async (e) => {
         if (w.busy) return;
@@ -1132,11 +1132,20 @@ $('#file-json').addEventListener('change', async (e) => {
 const APP_VERSION = document.querySelector('meta[name="app-version"]')?.content || '?';
 const TITLES = { shift: () => DB.data.settings.shiftName, tabel: () => 'Табель', people: () => 'Люди', more: () => 'Настройки' };
 
+const VIEW_ORDER = ['shift', 'tabel', 'people', 'more'];
+
 function go(view) {
+  const dir = Math.sign(VIEW_ORDER.indexOf(view) - VIEW_ORDER.indexOf(UI.view));
   UI.view = view;
   store.set('ts.view', view);
   render();
   window.scrollTo(0, 0);
+  if (dir) {
+    const el = $(`#view-${view}`);
+    el.classList.remove('is-enter-next', 'is-enter-prev');
+    void el.offsetWidth;
+    el.classList.add(dir > 0 ? 'is-enter-next' : 'is-enter-prev');
+  }
 }
 
 function render() {
@@ -1159,6 +1168,7 @@ function renderSync() {
   }[st.state] || '';
   $('#sync').dataset.state = st.state;
   $('#sync-text').textContent = text;
+  $('#sync').setAttribute('aria-label', `Облако: ${text || 'состояние неизвестно'}. Открыть настройки`);
 }
 
 $('#nav').addEventListener('click', (e) => {
@@ -1166,6 +1176,26 @@ $('#nav').addEventListener('click', (e) => {
   if (b) go(b.dataset.view);
 });
 $('#sync').addEventListener('click', () => go('more'));
+
+// Свайп влево/вправо по экрану — соседняя вкладка (порядок как в нижнем меню).
+// Не срабатывает на таблице табеля (она листается вбок), в полях ввода, при открытом окне и при вертикальной прокрутке.
+{
+  let sw = null;
+  const blocked = (t) => !!t.closest('.tabel-wrap, input, textarea, select, dialog, .toast, [data-noswipe]');
+  document.addEventListener('touchstart', (e) => {
+    sw = e.touches.length === 1 && !$('#sheet').open && !blocked(e.target)
+      ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() } : null;
+  }, { passive: true });
+  document.addEventListener('touchmove', (e) => { if (sw && e.touches.length > 1) sw = null; }, { passive: true });
+  document.addEventListener('touchend', (e) => {
+    const s = sw; sw = null;
+    if (!s || $('#sheet').open) return;
+    const dx = e.changedTouches[0].clientX - s.x, dy = e.changedTouches[0].clientY - s.y;
+    if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx) * 0.6 || Date.now() - s.t > 700) return;
+    const i = VIEW_ORDER.indexOf(UI.view) + (dx < 0 ? 1 : -1);
+    if (i >= 0 && i < VIEW_ORDER.length) go(VIEW_ORDER[i]);
+  }, { passive: true });
+}
 
 DB.onChange(() => render());
 Cloud.onChange(() => { renderSync(); if (UI.view === 'more') renderMore(); Reports.tick(); });
