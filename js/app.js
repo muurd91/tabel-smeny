@@ -1126,7 +1126,8 @@ $('#file-json').addEventListener('change', async (e) => {
 });
 
 // ================= Навигация и индикатор =================
-const APP_VERSION = '1';
+// Та же версия, что в index.html (meta app-version) и sw.js — её поднимает tools/bump.sh
+const APP_VERSION = document.querySelector('meta[name="app-version"]')?.content || '?';
 const TITLES = { shift: () => DB.data.settings.shiftName, tabel: () => 'Табель', people: () => 'Люди', more: () => 'Настройки' };
 
 function go(view) {
