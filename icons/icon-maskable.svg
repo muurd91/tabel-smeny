@@ -1,12 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2E3440"/><stop offset="1" stop-color="#161A20"/></linearGradient>
-    <linearGradient id="hi" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#C4CAD3"/></linearGradient>
+    <linearGradient id="rd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF3A3A"/><stop offset="1" stop-color="#E52222"/></linearGradient>
+    <linearGradient id="hi" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8FE04A"/><stop offset="1" stop-color="#6FC72C"/></linearGradient>
   </defs>
   <rect width="512" height="512" fill="url(#bg)"/>
   <g transform="translate(120 138) scale(.585)" stroke-width="12" stroke-linejoin="round">
     <path d="M222 20 440 388H350L180 100Z" fill="url(#hi)" stroke="url(#hi)"/>
     <path d="M165 125 212 197 110 388H25Z" fill="url(#hi)" stroke="url(#hi)"/>
-    <path d="M225 228 320 388H240L225 360 210 388H135Z" fill="#82DA3A" stroke="#82DA3A"/>
+    <path d="M225 228 320 388H240L225 360 210 388H135Z" fill="url(#rd)" stroke="url(#rd)"/>
   </g>
 </svg>
