@@ -144,8 +144,7 @@ const Dates = {
   num(iso) { const [y, m, d] = iso.split('-').map(Number); return Date.UTC(y, m - 1, d) / 864e5; },
   iso(n) { return new Date(n * 864e5).toISOString().slice(0, 10); },
   add(iso, days) { return this.iso(this.num(iso) + days); },
-  today() {
-    const d = new Date();
+  today(d = new Date()) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   },
   wd(iso) { return new Date(this.num(iso) * 864e5).getUTCDay(); },
@@ -175,6 +174,29 @@ const Sched = {
     return type === 'Д' ? s.dayHours : type === 'Н' ? s.nightHours : 0;
   },
   hours(iso, s = DB.data.settings) { return this.hoursOf(this.type(iso, s), s); },
+
+  // Время смены в минутах от полуночи из настроек: dayTime '7:30–19:30' → [450, 1170].
+  // Ночная смена числа d идёт с 19:30 d до 7:30 следующего дня.
+  times(type, s = DB.data.settings) {
+    const [a, b] = [...String((type === 'Д' ? s.dayTime : s.nightTime) || '').matchAll(/(\d{1,2})[:.](\d{2})/g)].map((m) => +m[1] * 60 + +m[2]);
+    return type === 'Д' ? [a ?? 450, b ?? 1170] : [a ?? 1170, b ?? 450];
+  },
+  nowMin(now = new Date()) { return now.getHours() * 60 + now.getMinutes(); },
+
+  // Смена этого числа уже началась (прошлые дни — да, будущие — нет, сегодня — по времени начала).
+  started(iso, now = new Date()) {
+    const today = Dates.today(now);
+    if (iso !== today) return iso < today;
+    const t = this.type(iso);
+    return t !== 'В' && this.nowMin(now) >= this.times(t)[0];
+  },
+
+  // Число текущей смены: ночью до 7:30 после ночной это ещё вчерашняя ночная смена.
+  current(now = new Date()) {
+    const today = Dates.today(now);
+    const y = Dates.add(today, -1);
+    return this.type(y) === 'Н' && this.nowMin(now) < this.times('Н')[1] ? y : today;
+  },
 };
 
 // ================= Табель =================
@@ -183,10 +205,10 @@ const Tabel = {
 
   marksMap() { return new Map(DB.data.marks.map((m) => [m.id, m])); },
 
-  // Клетка без отметки: часы по графику, но только за наступившие дни — будущие пустые,
-  // пока день не придёт (отметки на будущее, например больничный «по 20-е», показываются сразу).
+  // Клетка без отметки: часы по графику, но только за начавшиеся смены (дневная — с 7:30, ночная — с 19:30);
+  // будущие пустые (отметки на будущее, например больничный «по 20-е», показываются сразу).
   def(date) {
-    return date <= Dates.today() ? Sched.hours(date) || '' : '';
+    return Sched.started(date) ? Sched.hours(date) || '' : '';
   },
 
   // Значение клетки: число часов, код или '' (пусто).

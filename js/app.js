@@ -11,8 +11,8 @@ const store = {
 
 const UI = {
   view: store.get('ts.view') || 'shift',
-  date: Dates.today(),
-  month: Dates.ym(Dates.today()),
+  date: Sched.current(), // ночью до 7:30 после ночной — ещё вчерашняя смена
+  month: Dates.ym(Sched.current()),
 };
 
 const ICON = {
@@ -113,7 +113,7 @@ function renderShift() {
       </label>
       <button class="btn btn--icon" data-act="next" type="button" aria-label="Следующий день">${ICON.right}</button>
     </div>`;
-  if (d !== Dates.today()) html += `<div class="row row--end" style="margin:-6px 2px 8px"><button class="link" data-act="today" type="button">Сегодня</button></div>`;
+  if (d !== Sched.current()) html += `<div class="row row--end" style="margin:-6px 2px 8px"><button class="link" data-act="today" type="button">Текущая смена</button></div>`;
   html += Reports.banner();
 
   if (!people.length) {
@@ -142,9 +142,11 @@ function renderShift() {
   const vals = people.map((p) => Tabel.cell(p.id, d, map));
   // Отмечены — только те, у кого есть отметка, отличная от графика (будущие пустые дни — не отметки).
   const marked = people.filter((p, i) => map.has(Tabel.markId(d, p.id)) && (t === 'В' ? vals[i] !== '' : kindOf(vals[i], d) !== t));
-  if (t !== 'В' && d > Dates.today()) {
-    html += `<div class="summary"><span class="summary__main">День ещё не наступил</span>
-      <span class="muted small">часы по графику появятся в этот день; заранее можно отметить больничный или отпуск</span></div>`;
+  if (t !== 'В' && !Sched.started(d)) {
+    const start = Sched.times(t)[0];
+    const at = `${Math.floor(start / 60)}:${String(start % 60).padStart(2, '0')}`;
+    html += `<div class="summary"><span class="summary__main">${d === Dates.today() ? `Смена начнётся в ${at}` : 'День ещё не наступил'}</span>
+      <span class="muted small">часы по графику появятся с началом смены; заранее можно отметить больничный или отпуск</span></div>`;
   } else if (t !== 'В') {
     const present = vals.filter((v) => typeof v === 'number' && v > 0).length;
     html += `<div class="summary"><span class="summary__main">На смене ${present} из ${people.length}</span>
@@ -156,7 +158,7 @@ function renderShift() {
   if (marked.length) {
     html += `<div class="list-head">${t === 'В' ? 'Вышли сверх графика' : 'Отмечены'}</div>
       <div class="list">${marked.map((p) => `<div class="marked">${row(p)}<button class="btn btn--icon marked__x" data-clear="${p.id}" type="button" aria-label="Снять отметку">${ICON.x}</button></div>`).join('')}</div>`;
-  } else if (t !== 'В' && d <= Dates.today()) {
+  } else if (t !== 'В' && Sched.started(d)) {
     html += `<p class="hint">Отсутствующих нет — все на смене.</p>`;
   }
   html += `<details class="all"${UI.showAll ? ' open' : ''}><summary>Все работники (${people.length})</summary>
@@ -253,7 +255,7 @@ function applyMark(pid, date, v, reason = '', until = date) {
 const PLANNED = ['-', 'ОТ', 'Б'];
 async function notifyPlanned(p, dates, v, reason) {
   const today = Dates.today();
-  const future = dates.filter((d) => d > today);
+  const future = dates.filter((d) => d >= today && !Sched.started(d)); // и сегодняшняя смена, если ещё не началась
   if (!future.length || !PLANNED.includes(v)) return;
   if (!Telegram.meReady()) {
     if (Telegram.ready()) toast('Чтобы бот писал о таком вам лично: «Настройки» → «Уведомления мне»');
@@ -325,7 +327,7 @@ $('#view-shift').addEventListener('click', (e) => {
   const act = e.target.closest('[data-act]')?.dataset.act;
   if (act === 'prev') { UI.date = Dates.add(UI.date, -1); UI.qf.reason = ''; UI.qf.from = UI.qf.until = undefined; render(); return; }
   if (act === 'next') { UI.date = Dates.add(UI.date, 1); UI.qf.reason = ''; UI.qf.from = UI.qf.until = undefined; render(); return; }
-  if (act === 'today') { UI.date = Dates.today(); render(); return; }
+  if (act === 'today') { UI.date = Sched.current(); render(); return; }
   if (act === 'import') { $('#file-xlsx').click(); return; }
   if (act === 'people') { go('people'); addPerson(); return; }
   if (act === 'qf-save') { saveQuick(); return; }
@@ -1168,12 +1170,14 @@ $('#sync').addEventListener('click', () => go('more'));
 DB.onChange(() => render());
 Cloud.onChange(() => { renderSync(); if (UI.view === 'more') renderMore(); Reports.tick(); });
 
-// Новый день — переключиться на сегодня, если пользователь не листал даты
-let lastToday = Dates.today();
+// Новая смена — переключиться на неё, если пользователь не листал даты.
+// Перерисовать и просто так: в 7:30 и 19:30 у смены появляются часы по графику.
+let lastShift = Sched.current();
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) return;
-  const t = Dates.today();
-  if (t !== lastToday) { if (UI.date === lastToday) UI.date = t; lastToday = t; render(); }
+  const c = Sched.current();
+  if (c !== lastShift) { if (UI.date === lastShift) UI.date = c; lastShift = c; }
+  render();
 });
 
 // Ссылка на конкретный день: …/#d=2026-09-18
