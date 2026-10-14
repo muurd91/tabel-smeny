@@ -169,14 +169,15 @@ function durText(ms) {
   return [h ? `${h} ч` : '', m ? `${m} мин` : ''].filter(Boolean).join(' ');
 }
 
+// Шапка на «Смене», «Табеле» и «Людях» (на «Настройках» её нет). На «Смене» — выбранный день
+// (нажать на дату — календарь), на остальных вкладках — текущая смена.
 function renderShiftbar() {
   const el = $('#shiftbar');
-  el.hidden = UI.view !== 'shift';
-  if (el.hidden) return;
-  const d = UI.date;
+  const onShift = UI.view === 'shift';
+  const d = onShift ? UI.date : Sched.current();
   const t = Sched.type(d);
   const now = new Date();
-  const name = { Д: 'Дневная смена', Н: 'Ночная смена' }[t] || 'Выходной';
+  const name = { Д: 'Дневная', Н: 'Ночная' }[t] || 'Выходной';
   const thisYear = d.slice(0, 4) === Dates.today().slice(0, 4);
 
   let main, sub = '', pct = null;
@@ -186,24 +187,24 @@ function renderShiftbar() {
     const { start, end } = shiftSpan(d, t);
     const span = `${hhmm(start)}–${hhmm(end)}`;
     if (now < start) {
-      main = start - now < 864e5 ? `До начала смены ${durText(start - now)}` : 'Смена впереди';
+      main = start - now < 864e5 ? `До начала ${durText(start - now)}` : 'Смена впереди';
       sub = span; pct = 0;
     } else if (now < end) {
-      main = `До конца смены ${durText(end - now)}`;
+      main = `Осталось ${durText(end - now)}`;
       sub = `до ${hhmm(end)}`; pct = (now - start) / (end - start) * 100;
     } else {
       main = 'Смена закончилась'; sub = span; pct = 100;
     }
   }
 
+  const title = `${esc(name)} · ${esc(dateTitle(d, !thisYear))}`;
   el.innerHTML = `
-    <label class="shiftbar__date">
-      <span class="shiftbar__title">${esc(name)} · ${esc(dateTitle(d, !thisYear))}</span>${ICON.down}
-      <input class="datebar__input" type="date" id="shift-date" value="${d}" aria-label="Выбрать дату">
-    </label>
+    ${onShift ? `<label class="shiftbar__date"><span class="shiftbar__title">${title}</span>${ICON.down}
+      <input class="datebar__input" type="date" id="shift-date" value="${d}" aria-label="Выбрать дату"></label>`
+    : `<div class="shiftbar__date"><span class="shiftbar__title">${title}</span></div>`}
     <div class="shiftbar__status"><b>${esc(main)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}</div>
     ${pct === null ? '' : `<div class="shiftbar__track" role="progressbar" aria-label="Ход смены" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><div class="shiftbar__fill${pct >= 100 ? ' is-done' : ''}"></div></div>`}
-    ${d !== Sched.current() ? '<button class="shiftbar__back" data-act="today" type="button">К текущей смене</button>' : ''}`;
+    ${onShift && d !== Sched.current() ? '<button class="shiftbar__back" data-act="today" type="button">К текущей смене</button>' : ''}`;
   const fill = $('.shiftbar__fill', el);
   if (fill) fill.style.width = `${Math.min(100, Math.max(0, pct))}%`;
 }
@@ -223,7 +224,7 @@ $('#shiftbar').addEventListener('change', (e) => {
 {
   let key = '';
   setInterval(() => {
-    if (document.hidden || UI.view !== 'shift') return;
+    if (document.hidden || UI.view === 'more') return;
     const k = `${Sched.current()}|${Sched.started(UI.date)}`;
     if (key && k !== key) render(); else renderShiftbar();
     key = k;
@@ -1196,7 +1197,6 @@ $('#file-json').addEventListener('change', async (e) => {
 // ================= Навигация и индикатор =================
 // Та же версия, что в index.html (meta app-version) и sw.js — её поднимает tools/bump.sh
 const APP_VERSION = document.querySelector('meta[name="app-version"]')?.content || '?';
-const TITLES = { shift: () => DB.data.settings.shiftName, tabel: () => 'Табель', people: () => 'Люди', more: () => 'Настройки' };
 
 const VIEW_ORDER = ['shift', 'tabel', 'people', 'more'];
 
@@ -1221,7 +1221,9 @@ function render() {
     b.classList.toggle('is-active', on);
     if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
   });
-  $('#top-title').textContent = TITLES[UI.view]();
+  // Шапка (смена + облако) — везде, кроме «Настроек»
+  $('#top').hidden = UI.view === 'more';
+  document.body.classList.toggle('no-top', UI.view === 'more');
   ({ shift: renderShift, tabel: renderTabel, people: renderPeople, more: renderMore })[UI.view]();
   renderShiftbar();
   renderSync();

@@ -194,13 +194,19 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 
 /* ================= Смена ================= */
 /* Шапка вкладки «Смена»: дата и тип смены (нажать — календарь), сколько осталось, полоса хода смены */
-.top { flex-wrap: wrap; }
-.shiftbar { flex: 0 0 100%; display: flex; flex-direction: column; gap: 6px; margin-top: 2px; color: var(--on-brand); }
+/* Два блока: слева смена, справа облако (сверху) */
+.top { align-items: flex-start; }
+.top .sync { flex: none; }
+body.no-top .main { padding-top: calc(12px + env(safe-area-inset-top)); }
+.shiftbar { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; color: var(--on-brand); }
 .shiftbar__date {
   position: relative; align-self: flex-start; display: inline-flex; align-items: center; gap: 4px;
   min-height: 32px; margin-left: -2px; padding: 0 2px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer;
 }
 .shiftbar__date svg { width: 18px; height: 18px; opacity: .8; }
+.shiftbar__title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shiftbar__date { max-width: 100%; cursor: default; }
+label.shiftbar__date { cursor: pointer; }
 .datebar__input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; border: 0; }
 .shiftbar__status { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .shiftbar__status b { font-size: 17px; font-weight: 700; }
