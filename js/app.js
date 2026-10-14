@@ -880,8 +880,9 @@ function mailCard() {
   const m = DB.data.settings.mail || {};
   return `<p class="small muted">16-го и 1-го в ${CONFIG.sendHour}:00 планировщик пришлёт на эти адреса письмо с табелем в Excel. Ящик, с которого уходят письма, настраивается в GitHub (секреты MAIL_USER и MAIL_PASS).</p>
     <label class="field"><span class="field__label">Кому (несколько адресов — через запятую)</span><input class="input" id="mail-to" type="email" multiple inputmode="email" autocomplete="off" placeholder="buh@example.com" value="${esc(mailList(m.to).join(', '))}"></label>
+    <label class="field"><span class="field__label">Подпись в письме</span><input class="input" id="mail-sign" autocomplete="off" placeholder="И. И. Иванов, мастер смены" value="${esc(m.sign || '')}"></label>
     <label class="check"><input type="checkbox" id="mail-auto" ${m.auto !== false ? 'checked' : ''}><span>Отправлять автоматически 16-го и 1-го числа</span></label>
-    <button class="btn btn--primary btn--block" data-act="mail-save" type="button">Сохранить адреса</button>`;
+    <button class="btn btn--primary btn--block" data-act="mail-save" type="button">Сохранить</button>`;
 }
 
 // ---------- Telegram ----------
@@ -1084,7 +1085,8 @@ $('#view-more').addEventListener('click', async (e) => {
     const to = mailList($('#mail-to').value);
     const bad = to.filter((a) => !mailOk(a));
     if (bad.length) return toast(`Проверьте адрес: ${bad[0]}`);
-    DB.update((d) => { d.settings.mail = { ...d.settings.mail, to: to.join(', ') }; });
+    const sign = $('#mail-sign').value.trim();
+    DB.update((d) => { d.settings.mail = { ...d.settings.mail, to: to.join(', '), sign }; });
     toast(to.length ? `Сохранено адресов: ${to.length}` : 'Адреса очищены — письма не отправляются');
   }
   if (act === 'signin') Cloud.signInGoogle();

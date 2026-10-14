@@ -160,7 +160,18 @@ for (const doc of docs) {
       sandbox.__args = [r.ym, r.name];
       const files = [run('(() => { const x = Xlsx.build(__args[0]); return new File([x], `${__args[1]}.xlsx`, { type: x.type }); })()')];
       const subject = prefix + run(`Reports.periodCaption(${JSON.stringify(r.ym)})`);
-      await sendMail(mailTo, subject, 'Табель во вложении.', files);
+      // «Смена 1 — табель за октябрь 2026, с 01 по 16.10» → «Во вложении табель за октябрь 2026, с 01 по 16.10 (Смена 1).»
+      const shift = run('DB.data.settings.shiftName');
+      const period = subject.slice(prefix.length).replace(`${shift} — табель `, '');
+      const text = [
+        prefix ? prefix.trim() : '',
+        'Здравствуйте!',
+        '',
+        `Во вложении табель ${period} (${shift}).`,
+        'Письмо отправлено автоматически.',
+        ...(mail.sign ? ['', 'С уважением,', mail.sign] : []),
+      ].filter((s, i) => i || s).join('\n');
+      await sendMail(mailTo, subject, text, files);
       done.mailSentAt = now();
       console.log(`${r.id}: почта — отправлено (получателей: ${mailTo.length})`);
     } catch (e) {
