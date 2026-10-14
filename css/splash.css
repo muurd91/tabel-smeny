@@ -1,0 +1,88 @@
+/* ================= Заставка при запуске — только телефон в портрете ================= */
+/* Дизайн — «Амина», стиль C с горшками (вариант «Телефон»). Размеры — в cqw от ширины экрана,
+   высота по экрану — в cqh, чтобы горшки летели по терракотовой зоне на телефоне любой высоты.
+   Показ и закрытие — js/splash.js. Если скрипт не сработал, заставка сама исчезнет через 8 с (splash-failsafe). */
+.splash { display: none; }
+@media (max-width: 600px) and (orientation: portrait) {
+  .splash {
+    display: block; position: fixed; inset: 0; z-index: 100; overflow: hidden; isolation: isolate;
+    container-type: size; background: #1d5a4a;
+    font-family: Montserrat, "Segoe UI", system-ui, sans-serif;
+    animation: splash-failsafe .5s ease 8s forwards;
+  }
+}
+.splash.is-out { opacity: 0; transition: opacity .5s ease; pointer-events: none; }
+@keyframes splash-failsafe { to { opacity: 0; visibility: hidden; } }
+
+.splash__bg { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -2; stroke: none; } /* в style.css у всех svg есть обводка */
+
+/* Горшки пролетают слева направо по нижней диагонали, слегка вращаясь */
+.splash__pots { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.splash__pot {
+  position: absolute; left: 0; top: 0; width: var(--w); height: auto; opacity: 0; will-change: transform;
+  filter: drop-shadow(0 2.4cqw 2.4cqw rgba(0, 0, 0, .38)) drop-shadow(0 0 .7cqw rgba(255, 244, 220, .35));
+  animation: splash-fly var(--t) linear var(--d) infinite;
+}
+@keyframes splash-fly {
+  0%   { opacity: 0; transform: translate(var(--x0), var(--y0)) rotate(var(--r0)); }
+  8%   { opacity: 1; }
+  92%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--x1), var(--y1)) rotate(var(--r1)); }
+}
+/* x — в cqw, y — в cqh (в источнике экран 100 × 216,7 cqw: y_cqh = y_cqw / 2,167) */
+.splash__pot--1 { --w: 26cqw; --x0: -34cqw; --y0: 69.2cqh; --x1: 120cqw; --y1: 60.9cqh; --r0: -8deg;  --r1: 10deg;  --t: 11s;  --d: 0s;    --xs: 2cqw;  --ys: 64cqh; }
+.splash__pot--2 { --w: 24cqw; --x0: -30cqw; --y0: 81.2cqh; --x1: 125cqw; --y1: 73.8cqh; --r0: 8deg;   --r1: -12deg; --t: 13s;  --d: -5s;   --xs: 62cqw; --ys: 74cqh; }
+.splash__pot--3 { --w: 21cqw; --x0: -28cqw; --y0: 62.8cqh; --x1: 122cqw; --y1: 69.2cqh; --r0: -14deg; --r1: 8deg;   --t: 9s;   --d: -3s;   --xs: 76cqw; --ys: 60cqh; }
+.splash__pot--4 { --w: 20cqw; --x0: -26cqw; --y0: 76.1cqh; --x1: 120cqw; --y1: 84cqh;   --r0: 10deg;  --r1: -14deg; --t: 10s;  --d: -7s;   --xs: 28cqw; --ys: 72cqh; }
+.splash__pot--5 { --w: 23cqw; --x0: -32cqw; --y0: 86.8cqh; --x1: 124cqw; --y1: 79.4cqh; --r0: -6deg;  --r1: 12deg;  --t: 12s;  --d: -9s;   --xs: 6cqw;  --ys: 80cqh; }
+.splash__pot--6 { --w: 18cqw; --x0: -24cqw; --y0: 64.6cqh; --x1: 118cqw; --y1: 59.1cqh; --r0: 6deg;   --r1: -10deg; --t: 8.5s; --d: -6s;   --xs: 46cqw; --ys: 64cqh; }
+
+/* Логотип, девиз, «Загрузка» — в верхних 62 % экрана */
+.splash__content {
+  position: absolute; left: 0; right: 0; top: 0; bottom: 38%; z-index: 1;
+  display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 7cqw;
+}
+.splash__card {
+  padding: 6cqw 8cqw; border-radius: 6cqw; background: rgba(243, 227, 195, .96);
+  box-shadow: 0 4cqw 8cqw rgba(0, 0, 0, .35);
+}
+.splash__logo { display: block; width: 40cqw; height: auto; }
+.splash__slogan {
+  font-size: 6cqw; line-height: 1.35; font-weight: 500; letter-spacing: .06em; text-transform: uppercase;
+  text-align: center; color: #f3e3c3;
+}
+.splash__pill {
+  position: relative; overflow: hidden; width: 48cqw; padding: 3cqw 0; border-radius: 99cqw;
+  background: linear-gradient(#f0d3a8, #d9b07c); color: #5c3326;
+  box-shadow: 0 2cqw 4cqw rgba(0, 0, 0, .28), inset 0 .4cqw .6cqw rgba(255, 255, 255, .6);
+  font-size: 4cqw; font-weight: 600; letter-spacing: .05em; text-align: center;
+}
+.splash__pill i { position: absolute; inset: 0; background: rgba(255, 255, 255, .38); transform-origin: left; transform: scaleX(0); }
+.splash__pill span { position: relative; }
+
+/* Подпись автора — стеклянная плашка внизу по центру */
+.splash__sig {
+  position: absolute; z-index: 2; left: 50%; bottom: 6cqw; transform: translateX(-50%);
+  width: max-content; max-width: 94cqw; padding: 1.6cqw 4cqw; border-radius: 99cqw; white-space: nowrap;
+  font-size: 3.4cqw; letter-spacing: .04em; color: #f3e3c3; text-shadow: 0 .2cqw .8cqw rgba(0, 0, 0, .45);
+  background: rgba(0, 0, 0, .28); backdrop-filter: blur(.6cqw); -webkit-backdrop-filter: blur(.6cqw);
+  border: .1cqw solid rgba(243, 227, 195, .4);
+}
+.splash__sig b { font-weight: 600; }
+
+/* Появление */
+.splash.is-on .splash__card, .splash.is-on .splash__slogan { animation: splash-in .9s ease both; }
+.splash.is-on .splash__slogan { animation-delay: .25s; }
+.splash.is-on .splash__pill i { animation: splash-load 2.6s ease-in-out both; }
+.splash.is-on .splash__sig { animation: splash-sig 1s ease 1.2s both; }
+@keyframes splash-in { from { opacity: 0; transform: translateY(2cqw); } to { opacity: 1; transform: none; } }
+@keyframes splash-load { to { transform: scaleX(1); } }
+@keyframes splash-sig { from { opacity: 0; margin-bottom: -1.5cqw; } to { opacity: 1; margin-bottom: 0; } }
+
+/* Без анимации: горшки стоят на «полу», остальное появляется сразу */
+@media (prefers-reduced-motion: reduce) {
+  .splash__pot { animation: none; opacity: 1; transform: translate(var(--xs), var(--ys)); }
+  .splash.is-on .splash__card, .splash.is-on .splash__slogan, .splash.is-on .splash__sig { animation: none; }
+  .splash.is-on .splash__pill i { animation: none; transform: scaleX(1); }
+  .splash.is-out { transition: none; }
+}

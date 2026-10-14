@@ -6,16 +6,44 @@
   <meta name="theme-color" content="#2F5D4E">
   <meta name="color-scheme" content="light">
   <!-- Версия приложения: та же, что VERSION в sw.js и ?v= у файлов ниже (меняет tools/bump.sh) -->
-  <meta name="app-version" content="32">
+  <meta name="app-version" content="33">
   <title>Табель смены</title>
   <meta name="apple-mobile-web-app-title" content="Табель смены">
   <meta name="application-name" content="Табель смены">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/style.css?v=32">
+  <link rel="stylesheet" href="css/style.css?v=33">
+  <link rel="stylesheet" href="css/splash.css?v=33">
 </head>
 <body>
+  <!-- Заставка при запуске — только телефон в портрете (css/splash.css, js/splash.js); после показа удаляется -->
+  <div class="splash" id="splash" aria-hidden="true">
+    <svg class="splash__bg" viewBox="0 0 100 217" preserveAspectRatio="none" focusable="false">
+      <defs>
+        <linearGradient id="splash-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b8f7c"/><stop offset="1" stop-color="#1d5a4a"/></linearGradient>
+        <linearGradient id="splash-floor" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9a5a42"/><stop offset="1" stop-color="#5c3326"/></linearGradient>
+      </defs>
+      <rect width="100" height="217" fill="url(#splash-sky)"/>
+      <polygon points="0,150 100,112 100,217 0,217" fill="url(#splash-floor)"/>
+    </svg>
+    <div class="splash__pots">
+      <img class="splash__pot splash__pot--1" data-src="icons/splash/pot-red-flowers.webp" alt="">
+      <img class="splash__pot splash__pot--2" data-src="icons/splash/pot-pink-roses.webp" alt="">
+      <img class="splash__pot splash__pot--3" data-src="icons/splash/pot-red-sprout.webp" alt="">
+      <img class="splash__pot splash__pot--4" data-src="icons/splash/pot-terracotta.webp" alt="">
+      <img class="splash__pot splash__pot--5" data-src="icons/splash/pot-black-herb.webp" alt="">
+      <img class="splash__pot splash__pot--6" data-src="icons/splash/pot-white-planter.webp" alt="">
+    </div>
+    <div class="splash__content">
+      <div class="splash__card"><img class="splash__logo" data-src="icons/splash/logo.png" alt="Амина"></div>
+      <div class="splash__slogan">Амина – все для<br>зеленого бизнеса</div>
+      <div class="splash__pill"><i></i><span>ЗАГРУЗКА</span></div>
+    </div>
+    <div class="splash__sig">Идея и разработка — <b>А. Н. Меньков</b></div>
+  </div>
+  <script src="js/splash.js?v=33"></script>
+
   <header class="top">
     <div class="top__title" id="top-title"></div>
     <button class="sync" id="sync" type="button" title="Облако"><span class="sync__dot" aria-hidden="true"></span><span class="sync__text" id="sync-text"></span></button>
@@ -51,13 +79,13 @@
   <input type="file" id="file-json" accept=".json,application/json" hidden>
 
   <!-- ?v= — чтобы новая страница никогда не взяла из кэша старые скрипты (иначе после обновления — пустой экран) -->
-  <script src="js/config.js?v=32"></script>
-  <script src="js/data.js?v=32"></script>
-  <script src="js/cloud.js?v=32"></script>
-  <script src="js/xlsx.js?v=32"></script>
-  <script src="js/telegram.js?v=32"></script>
-  <script src="js/report.js?v=32"></script>
-  <script src="js/app.js?v=32"></script>
+  <script src="js/config.js?v=33"></script>
+  <script src="js/data.js?v=33"></script>
+  <script src="js/cloud.js?v=33"></script>
+  <script src="js/xlsx.js?v=33"></script>
+  <script src="js/telegram.js?v=33"></script>
+  <script src="js/report.js?v=33"></script>
+  <script src="js/app.js?v=33"></script>
   <script>
     // app.js в конце ставит window.appStarted; если его нет — что-то не загрузилось или упало при запуске.
     if (!window.appStarted) document.getElementById('app-error').hidden = false;

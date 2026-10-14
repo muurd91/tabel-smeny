@@ -2,11 +2,11 @@
 // Кэшируются файлы приложения и библиотеки Firebase (gstatic.com); данные — в localStorage и Firestore.
 // При любом изменении файлов приложения — tools/bump.sh: он поднимает VERSION здесь и ?v= в index.html
 // (иначе телефон будет держать старую копию, а новая страница может получить старые скрипты).
-const VERSION = '32';
+const VERSION = '33';
 const CACHE = `ts-shell-v${VERSION}`;
 
 // Скрипты и стили — с ?v=VERSION, ровно как их запрашивает index.html.
-const VERSIONED = ['css/style.css', 'js/config.js', 'js/data.js', 'js/cloud.js', 'js/xlsx.js', 'js/telegram.js', 'js/report.js', 'js/app.js'];
+const VERSIONED = ['css/style.css', 'css/splash.css', 'js/splash.js', 'js/config.js', 'js/data.js', 'js/cloud.js', 'js/xlsx.js', 'js/telegram.js', 'js/report.js', 'js/app.js'];
 
 const SHELL = [
   './',
@@ -18,6 +18,9 @@ const SHELL = [
   'icons/icon-512.png',
   'icons/icon-maskable-512.png',
   'icons/apple-touch-icon.png',
+  // Заставка (только телефон) — чтобы офлайн она была с картинками
+  'icons/splash/logo.png',
+  ...['red-flowers', 'pink-roses', 'red-sprout', 'terracotta', 'black-herb', 'white-planter'].map((p) => `icons/splash/pot-${p}.webp`),
 ];
 
 self.addEventListener('install', (e) => {
