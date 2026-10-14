@@ -91,6 +91,9 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .nav__btn.is-active svg { background: var(--accent); color: var(--on-accent); }
 
 /* Экран «въезжает» при смене вкладки (свайп или нажатие на меню) */
+/* Въезжающий экран на миг выходит за край — обрезаем, иначе Chrome на телефоне решает, что страница шире экрана,
+   уменьшает масштаб и так и оставляет (мелкий экран и белая полоса снизу). clip, а не hidden: шапка остаётся липкой. */
+html, body, .main { overflow-x: clip; }
 .view.is-enter-next { animation: view-in-next .2s ease-out; }
 .view.is-enter-prev { animation: view-in-prev .2s ease-out; }
 @keyframes view-in-next { from { opacity: 0; transform: translateX(28px); } }
