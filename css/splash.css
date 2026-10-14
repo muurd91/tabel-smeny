@@ -88,3 +88,6 @@
   .splash.is-on .splash__pill i { animation: none; transform: scaleX(1); }
   .splash.is-out { transition: none; }
 }
+
+/* Запуск из APK (TWA): Android уже показал картинку этой заставки (снята с неё в момент 0) — без анимации появления */
+.splash.is-twa .splash__card, .splash.is-twa .splash__slogan, .splash.is-twa .splash__sig { animation: none !important; }

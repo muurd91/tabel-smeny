@@ -14,6 +14,9 @@
     const t0 = performance.now();
     // Картинки — только на телефоне (на планшете и компьютере не скачиваются)
     el.querySelectorAll('img[data-src]').forEach((img) => { img.src = img.dataset.src; });
+    // Запуск из APK (TWA): Android уже показал неподвижную картинку этой заставки — без анимации появления,
+    // чтобы переход с картинки на живую заставку был незаметен (горшки стартуют с тех же мест).
+    if (document.referrer.startsWith('android-app://')) el.classList.add('is-twa');
     el.classList.add('is-on');
 
     // Строка состояния Android — в цвет заставки, после — обратно в цвет шапки
