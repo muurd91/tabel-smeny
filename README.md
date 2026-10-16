@@ -5,7 +5,9 @@
 **Открыть:** https://muurd91.github.io/tabel-smeny/
 Ставится на телефон как приложение: Chrome → ⋮ → «Добавить на главный экран».
 
-**▶ [Смотреть видео о приложении (40 с)](docs/promo.mp4)**
+
+https://github.com/user-attachments/assets/59470dd4-89f0-41a5-be6a-b0cd03d5f467
+
 
 ![Экраны приложения: смена, табель, настройки](docs/screens.png)
 
