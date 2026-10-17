@@ -104,7 +104,10 @@ const Cloud = (() => {
         import(`${CDN}/firebase-auth.js`),
         import(`${CDN}/firebase-firestore.js`),
       ]);
-      const a = app.initializeApp(cfg);
+      // Своё имя подключения: «Журнал производства» на том же адресе (muurd91.github.io) и в том же проекте Firebase,
+      // а вход браузер хранит по адресу + ключу + имени подключения. С именем по умолчанию вход был общий —
+      // «Выйти» в журнале выкидывало и из табеля.
+      const a = app.initializeApp(cfg, 'tabel');
       let db;
       try { db = fs.initializeFirestore(a, { localCache: fs.persistentLocalCache({ tabManager: fs.persistentMultipleTabManager() }) }); }
       catch { db = fs.getFirestore(a); }
