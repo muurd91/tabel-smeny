@@ -217,8 +217,12 @@ const Reports = (() => {
     if (r.start < (tg.since || '')) return;
     const s = state(r.id);
     if (s.tgSentAt || s.sentAt || s.dismissed) return;
-    if (new Date().getHours() < (CONFIG.sendHour ?? 0)) return;
-    if (Cloud.info().connected && DB.saveState.state !== 'saved') return;
+    // Основная отправка — планировщик в CONFIG.sendHour; приложение подстраховывает через час, чтобы не пересечься с ним.
+    if (new Date().getHours() < (CONFIG.sendHour ?? 0) + 1) return;
+    // Только после сверки с облаком под аккаунтом владельца: отметку «отправлено» ставит планировщик в облаке,
+    // а копия на телефоне без входа (или до сверки) её не знает — иначе табель уходит повторно.
+    const c = Cloud.info();
+    if (c.available && (!c.connected || !c.isOwner || !c.lastSync || DB.saveState.state !== 'saved')) return;
     sendActiveTelegram({ auto: true });
   }
 
