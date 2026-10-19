@@ -658,29 +658,34 @@ function scrollToToday(el) {
   if (wrap && th) wrap.scrollLeft = Math.max(0, th.offsetLeft - 112 - wrap.clientWidth / 3);
 }
 
-// Очередь на стикеровку: сверху — кто ещё не был или был давнее всех (по всей истории, не только за месяц).
-// Уже запланированные на будущие смены — в конце, с датой.
+// Очередь на стикеровку — по кругу в порядке табеля: укладчики-упаковщики списком, как в табеле;
+// «следующий» — тот, кто идёт в списке сразу после последнего поставленного (после последнего — снова первый).
 function stickerQueueHtml(today) {
-  // В очереди — только укладчики-упаковщики (на стикеровку ставят их); должность — из «Людей»
-  const active = DB.data.people.filter((p) => !p.archived && /укладчи/i.test(p.position || ''));
-  if (!active.length) return '';
+  // Только укладчики-упаковщики (на стикеровку ставят их); должность — из «Людей», порядок — как в табеле
+  const list = DB.data.people.filter((p) => !p.archived && /укладчи/i.test(p.position || ''));
+  if (!list.length) return '';
+  const ids = new Set(list.map((p) => p.id));
   const last = new Map(), next = new Map(), total = new Map();
+  let latest = null; // последняя по дате отметка среди них (и запланированные): от неё считается очередь
   for (const s of DB.data.stickers) {
+    if (!ids.has(s.pid)) continue;
     if (s.date <= today) {
       if (!(last.get(s.pid) >= s.date)) last.set(s.pid, s.date);
       total.set(s.pid, (total.get(s.pid) || 0) + 1);
     } else if (!(next.get(s.pid) <= s.date)) next.set(s.pid, s.date);
+    const i = list.findIndex((p) => p.id === s.pid);
+    if (!latest || s.date > latest.date || (s.date === latest.date && i > latest.i)) latest = { date: s.date, i };
   }
-  const pos = new Map(active.map((p, i) => [p.id, i]));
-  const key = (p) => (next.has(p.id) ? `1${next.get(p.id)}` : `0${last.get(p.id) || ''}`);
-  const queue = [...active].sort((a, b) => key(a).localeCompare(key(b)) || pos.get(a.id) - pos.get(b.id));
+  const nextIdx = latest ? (latest.i + 1) % list.length : 0;
   const plural = (n) => (n % 10 === 1 && n % 100 !== 11 ? 'смена' : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? 'смены' : 'смен');
   return `<div class="card queue"><h2>Очередь на стикеровку</h2>
-    <p class="small muted">Укладчики-упаковщики. Сверху — кто ещё не был или был давнее всех.</p>
-    <ol class="queue__list">${queue.map((p) => {
-      const when = next.has(p.id) ? `запланирован на ${Dates.dm(next.get(p.id))}`
-        : last.has(p.id) ? `последний раз ${Dates.dm(last.get(p.id))} · всего ${total.get(p.id)} ${plural(total.get(p.id))}` : 'ещё не был';
-      return `<li class="queue__row${next.has(p.id) ? ' is-planned' : ''}"><b>${esc(Tabel.shortName(p))}</b><span>${esc(when)}</span></li>`;
+    <p class="small muted">Укладчики-упаковщики по порядку табеля. Отмечен тот, кто идёт следующим.</p>
+    <ol class="queue__list">${list.map((p, i) => {
+      const when = [
+        next.has(p.id) ? `запланирован на ${Dates.dm(next.get(p.id))}` : '',
+        last.has(p.id) ? `последний раз ${Dates.dm(last.get(p.id))} · всего ${total.get(p.id)} ${plural(total.get(p.id))}` : next.has(p.id) ? '' : 'ещё не был',
+      ].filter(Boolean).join(' · ');
+      return `<li class="queue__row${i === nextIdx ? ' is-next' : ''}${next.has(p.id) ? ' is-planned' : ''}"><b>${esc(Tabel.shortName(p))}${i === nextIdx ? ' <span class="queue__badge">следующий</span>' : ''}</b><span>${esc(when)}</span></li>`;
     }).join('')}</ol>
   </div>`;
 }
