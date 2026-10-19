@@ -15,6 +15,7 @@ function emptyData() {
     people: [],     // { id, name, position, archived } — порядок массива = порядок в табеле
     marks: [],      // { id: 'YYYY-MM-DD|personId', date, pid, v, reason } — v: число часов или код ('Б', 'ОТ', '-', '')
     notes: [],      // свободные примечания к месяцу: { id, month: 'YYYY-MM', text }
+    stickers: [],   // кто на стикеровке: { id: 'YYYY-MM-DD|personId', date, pid } — на часы не влияет, только отметка
     reports: [],    // снимки 16-го и 1-го: { id: 'YYYY-MM-16' | 'YYYY-MM-final', savedAt, sentAt, dismissed }
   };
 }
@@ -238,6 +239,18 @@ const Tabel = {
     // Совпадает с графиком и без причины — отметка не нужна.
     if (!(v === def && !reason)) list.push({ id, date, pid, v, ...(reason ? { reason } : {}) });
     DB.data.marks = list;
+  },
+
+  // Стикеровка — отдельная отметка «где работал»: на часы и отправляемый табель не влияет.
+  stickerSet() { return new Set(DB.data.stickers.map((s) => s.id)); },
+  isSticker(date, pid, set = this.stickerSet()) { return set.has(this.markId(date, pid)); },
+  setSticker(date, pid, on) {
+    const id = this.markId(date, pid);
+    DB.data.stickers = DB.data.stickers.filter((s) => s.id !== id);
+    if (on) DB.data.stickers.push({ id, date, pid });
+  },
+  stickerCount(pid, ym, set = this.stickerSet()) {
+    return Dates.monthDays(ym).filter((d) => set.has(this.markId(d, pid))).length;
   },
 
   // Люди месяца: действующие + архивные, у кого есть отметки в этом месяце.

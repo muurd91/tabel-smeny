@@ -11,6 +11,7 @@ const store = {
 
 const UI = {
   view: store.get('ts.view') || 'shift',
+  tabelMode: store.get('ts.tabelMode') === 'sticker' ? 'sticker' : 'hours', // «Табель»: часы или стикеровка
   date: Sched.current(), // ночью до 7:30 после ночной — ещё вчерашняя смена
   month: Dates.ym(Sched.current()),
 };
@@ -148,6 +149,13 @@ function renderShift() {
   } else if (t !== 'В' && Sched.started(d)) {
     html += `<p class="hint">Отсутствующих нет — все на смене.</p>`;
   }
+  // Кто на стикеровке в эту смену (на часы не влияет)
+  const stickerSet = Tabel.stickerSet();
+  const onSticker = people.filter((p) => Tabel.isSticker(d, p.id, stickerSet));
+  if (onSticker.length) {
+    html += `<div class="list-head">На стикеровке</div>
+      <div class="list">${onSticker.map((p) => `<div class="marked"><div class="person"><span class="person__info"><span class="person__name">${esc(Tabel.shortName(p))}</span><br><span class="person__sub">${esc(p.position || '')}</span></span><span class="val val--sticker">С</span></div><button class="btn btn--icon marked__x" data-unsticker="${p.id}" type="button" aria-label="Снять со стикеровки">${ICON.x}</button></div>`).join('')}</div>`;
+  }
   html += `<details class="all"${UI.showAll ? ' open' : ''}><summary>Все работники (${people.length})</summary>
     <div class="list">${people.map(row).join('')}</div></details>`;
   el.innerHTML = html;
@@ -236,6 +244,9 @@ $('#shiftbar').addEventListener('change', (e) => {
 UI.qf = {};
 UI.showAll = false;
 
+// Стикеровка — не отсутствие, а где человек работал: часы не меняет, видна в «Табеле» → «Стикеровка».
+const STICKER = { k: 'sticker', label: 'Стикеровка', v: 'sticker' };
+
 function quickReasons(t) {
   const s = DB.data.settings;
   if (t === 'В') {
@@ -243,6 +254,7 @@ function quickReasons(t) {
       { k: 'day', label: `В день · ${s.dayHours} ч`, v: s.dayHours },
       { k: 'night', label: `В ночь · ${s.nightHours} ч`, v: s.nightHours },
       { k: 'part', label: 'Другое число часов', v: 'part' },
+      STICKER,
     ];
   }
   return [
@@ -252,6 +264,7 @@ function quickReasons(t) {
     { k: 'truancy', label: 'Прогул', v: '-', reason: 'прогул' },
     { k: 'part', label: 'Неполная смена', v: 'part' },
     { k: 'other', label: 'Другое', v: '-' },
+    STICKER,
   ];
 }
 
@@ -261,11 +274,13 @@ function quickForm(d, t, people, map) {
   const q = UI.qf;
   const reasons = quickReasons(t);
   const r = reasons.find((x) => x.k === q.reason);
+  const stickers = Tabel.stickerSet();
   const status = (p) => {
-    if (!map.has(Tabel.markId(d, p.id))) return '';
+    const st = Tabel.isSticker(d, p.id, stickers) ? ' — стикеровка' : '';
+    if (!map.has(Tabel.markId(d, p.id))) return st;
     const v = Tabel.cell(p.id, d, map);
     const k = kindOf(v, d);
-    return k === t || k === 'off' ? '' : ` — сейчас: ${valText(v)}`;
+    return (k === t || k === 'off' ? '' : ` — сейчас: ${valText(v)}`) + st;
   };
   let extra = '';
   if (r?.v === 'part') {
@@ -276,8 +291,8 @@ function quickForm(d, t, people, map) {
           <input class="input" id="qf-text" value="${esc(q.text || '')}" placeholder="например, заявление" autocomplete="off"></label>` : ''}
       </div>`;
   }
-  // Заявление, отпуск, больничный — можно сразу на будущие дни и на несколько смен.
-  if (r && ['own', 'other', 'sick', 'vac'].includes(r.k)) {
+  // Заявление, отпуск, больничный, стикеровка — можно сразу на будущие дни и на несколько смен.
+  if (r && ['own', 'other', 'sick', 'vac', 'sticker'].includes(r.k)) {
     const from = q.from || d;
     extra += `${r.k === 'other' ? `<label class="field"><span class="field__label">Причина (в примечание)</span>
       <input class="input" id="qf-text" value="${esc(q.text || '')}" placeholder="что случилось" autocomplete="off"></label>` : ''}
@@ -285,7 +300,7 @@ function quickForm(d, t, people, map) {
         <label class="field grow field--tight"><span class="field__label">С</span><input class="input" id="qf-from" type="date" value="${esc(from)}"></label>
         <label class="field grow field--tight"><span class="field__label">По (включительно)</span><input class="input" id="qf-until" type="date" min="${esc(from)}" value="${esc(q.until && q.until > from ? q.until : from)}"></label>
       </div>
-      <div class="small muted">${from > Dates.today() ? 'Будущая дата — бот напишет вам в личку, в «Скоро не будет» появится запись.' : 'Отметка встанет на все смены по графику в этом промежутке.'}</div>`;
+      <div class="small muted">${r.k === 'sticker' ? 'Часы не меняются. Отметка — в «Табеле» → «Стикеровка», на все смены по графику в этом промежутке.' : from > Dates.today() ? 'Будущая дата — бот напишет вам в личку, в «Скоро не будет» появится запись.' : 'Отметка встанет на все смены по графику в этом промежутке.'}</div>`;
   }
   const ready = q.pid && r;
   return `<div class="card qf">
@@ -296,7 +311,7 @@ function quickForm(d, t, people, map) {
         ${people.map((p) => `<option value="${p.id}"${q.pid === p.id ? ' selected' : ''}>${esc(Tabel.shortName(p))}${esc(status(p))}</option>`).join('')}
       </select></label>
     <div class="field__label">${t === 'В' ? 'Когда выходил' : 'Причина'}</div>
-    <div class="chips chips--grid">${reasons.map((x) => `<button class="chip${q.reason === x.k ? ' is-on' : ''}" data-qr="${x.k}" type="button">${esc(x.label)}</button>`).join('')}</div>
+    <div class="chips chips--grid">${reasons.map((x) => `<button class="chip${x.k === 'sticker' ? ' chip--wide' : ''}${q.reason === x.k ? ' is-on' : ''}" data-qr="${x.k}" type="button">${esc(x.label)}</button>`).join('')}</div>
     ${extra}
     <button class="btn btn--primary btn--block mt-12" data-act="qf-save" type="button" ${ready ? '' : 'disabled'}>Отметить</button>
   </div>`;
@@ -371,6 +386,17 @@ function saveQuick() {
   const r = quickReasons(t).find((x) => x.k === q.reason);
   const p = DB.data.people.find((x) => x.id === q.pid);
   if (!r || !p) return;
+  if (r.k === 'sticker') {
+    // На все смены по графику в промежутке (первый день — всегда, даже выходной: вышел сверх графика)
+    const from = q.from || d;
+    const until = q.until > from ? q.until : from;
+    UI.qf = {};
+    DB.update(() => {
+      for (let x = from; x <= until; x = Dates.add(x, 1)) if (x === from || Sched.type(x) !== 'В') Tabel.setSticker(x, p.id, true);
+    });
+    toast(`${Tabel.surname(p)}: стикеровка${until > from ? ` ${Dates.dm(from)}–${Dates.dm(until)}` : from !== d ? ` ${Dates.dm(from)}` : ''}`);
+    return;
+  }
   let v = r.v;
   let reason = r.reason || '';
   if (v === 'part') {
@@ -397,6 +423,13 @@ $('#view-shift').addEventListener('click', (e) => {
   if (go2) { UI.date = go2; UI.qf.from = UI.qf.until = undefined; render(); window.scrollTo(0, 0); return; }
   const qr = e.target.closest('[data-qr]')?.dataset.qr;
   if (qr) { UI.qf.reason = qr; UI.qf.text = ''; UI.qf.hours = undefined; render(); return; }
+  const unsticker = e.target.closest('[data-unsticker]')?.dataset.unsticker;
+  if (unsticker) {
+    const p = DB.data.people.find((x) => x.id === unsticker);
+    DB.update(() => Tabel.setSticker(UI.date, unsticker, false));
+    toast(`${Tabel.surname(p)}: снят со стикеровки`);
+    return;
+  }
   const clear = e.target.closest('[data-clear]')?.dataset.clear;
   if (clear) {
     const p = DB.data.people.find((x) => x.id === clear);
@@ -543,12 +576,18 @@ function renderTabel() {
   const types = days.map((d) => Sched.type(d));
   const canShare = !!(navigator.canShare && window.File);
 
+  const mode = UI.tabelMode;
   let html = `${Reports.banner()}
+    <div class="seg" role="tablist" aria-label="Что показать">
+      ${[['hours', 'Часы'], ['sticker', 'Стикеровка']].map(([k, label]) => `<button class="seg__btn${mode === k ? ' is-on' : ''}" data-mode="${k}" role="tab" aria-selected="${mode === k}" type="button">${label}</button>`).join('')}
+    </div>
     <div class="monthbar">
       <button class="btn btn--icon" data-act="prev" type="button" aria-label="Предыдущий месяц">${ICON.left}</button>
       <div class="monthbar__title">${esc(Dates.monthTitle(ym))}</div>
       <button class="btn btn--icon" data-act="next" type="button" aria-label="Следующий месяц">${ICON.right}</button>
-    </div>
+    </div>`;
+  if (mode === 'sticker') { el.innerHTML = html + stickerTabelHtml(ym, days, types, today); scrollToToday(el); return; }
+  html += `
     <div class="row mb-12">
       <button class="btn btn--primary grow" data-act="xlsx" type="button" aria-label="Скачать Excel">${ICON.file} Excel</button>
       ${canShare ? `<button class="btn grow" data-act="share" type="button">${ICON.share} Отправить</button>` : ''}
@@ -602,10 +641,42 @@ function renderTabel() {
       <button class="btn" data-act="note" type="button">Добавить</button></div></div>`;
 
   el.innerHTML = html;
-  // Прокрутить к сегодняшнему дню
+  scrollToToday(el);
+}
+
+// Прокрутить таблицу к сегодняшнему дню
+function scrollToToday(el) {
   const wrap = $('.tabel-wrap', el);
   const th = $('.is-today', el);
-  if (th) wrap.scrollLeft = Math.max(0, th.offsetLeft - 112 - wrap.clientWidth / 3);
+  if (wrap && th) wrap.scrollLeft = Math.max(0, th.offsetLeft - 112 - wrap.clientWidth / 3);
+}
+
+// «Табель» → «Стикеровка»: та же сетка месяца без часов — «С» у тех, кто стоял на стикеровке;
+// справа — сколько таких смен. Нажатие на клетку ставит или снимает отметку. Только в приложении, не отправляется.
+function stickerTabelHtml(ym, days, types, today) {
+  const people = DB.data.people.filter((p) => !p.archived || DB.data.stickers.some((s) => s.pid === p.id && s.date.startsWith(ym)));
+  if (!people.length) return '<div class="card empty"><b>В этом месяце никого нет</b>Добавьте людей на вкладке «Люди».</div>';
+  const set = Tabel.stickerSet();
+  const head1 = days.map((d, i) => `<th class="${types[i]}">${Dates.WD[Dates.wd(d)]}</th>`).join('');
+  const head2 = days.map((d, i) => `<th class="${types[i]}${d === today ? ' is-today' : ''}">${i + 1}</th>`).join('');
+  const head3 = days.map((d, i) => `<th class="${types[i]}">${types[i] === 'В' ? '' : types[i]}</th>`).join('');
+  const body = people.map((p) => {
+    const cells = days.map((d, i) => {
+      const on = set.has(Tabel.markId(d, p.id));
+      return `<td class="c ${types[i]}${on ? ' c--sticker' : ''}" data-sticker-pid="${p.id}" data-date="${d}">${on ? 'С' : ''}</td>`;
+    }).join('');
+    const n = Tabel.stickerCount(p.id, ym, set);
+    return `<tr><th class="name" title="${esc(p.name)}">${esc(Tabel.shortName(p))}</th>${cells}<td class="tot">${n || ''}</td></tr>`;
+  }).join('');
+  return `<div class="tabel-wrap"><table class="tabel">
+      <thead><tr><th class="name"></th>${head1}<th class="tot"></th></tr>
+      <tr><th class="name">${esc(DB.data.settings.shiftName)}</th>${head2}<th class="tot">Смен</th></tr>
+      <tr><th class="name"></th>${head3}<th class="tot"></th></tr></thead>
+      <tbody>${body}</tbody></table></div>
+    <div class="card legend"><h2>Стикеровка</h2>
+      <div class="legend__row mt-8"><span class="legend__cell c--sticker">С</span><span>работал на стикеровке; справа — сколько смен за месяц</span></div>
+      <p class="small muted">Отметить: на «Смене» выбрать работника и «Стикеровка» (можно сразу на несколько смен) или нажать на клетку здесь. На часы и отправляемый табель не влияет.</p>
+    </div>`;
 }
 
 function xlsxFile() {
@@ -655,6 +726,16 @@ $('#view-tabel').addEventListener('click', async (e) => {
   if (del) DB.update((d) => { d.notes = d.notes.filter((n) => n.id !== del); });
   const cell = e.target.closest('td[data-pid]');
   if (cell) openEditor(cell.dataset.pid, cell.dataset.date);
+  const st = e.target.closest('td[data-sticker-pid]');
+  if (st) {
+    const { stickerPid: pid, date } = st.dataset;
+    const on = !Tabel.isSticker(date, pid);
+    const p = DB.data.people.find((x) => x.id === pid);
+    DB.update(() => Tabel.setSticker(date, pid, on));
+    toast(`${Tabel.surname(p)} ${Dates.dm(date)}: ${on ? 'стикеровка' : 'снят со стикеровки'}`);
+  }
+  const m = e.target.closest('[data-mode]')?.dataset.mode;
+  if (m && m !== UI.tabelMode) { UI.tabelMode = m; store.set('ts.tabelMode', m); render(); }
 });
 
 // ---------- Очистка табеля за период ----------

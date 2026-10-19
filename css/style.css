@@ -16,6 +16,7 @@
   --absent: #B8382F; --absent-soft: #F8E6E1;
   --part: #8A5A1C; --part-soft: #F8EBD6;
   --extra: #5E4A9A; --extra-soft: #ECE7F6;
+  --sticker: #7A4B33; --sticker-soft: #F3E4D6; /* стикеровка — «деревянный» коричневый, не путать с часами */
   --ok: #4C8A3A; --warn: #C08A3E; --err: #B8382F;
   --shadow: rgb(47 61 50 / .10); --scrim: rgb(20 30 25 / .45);
   --heading: #2F5D4E;
@@ -384,3 +385,15 @@ label.shiftbar__date { cursor: pointer; }
 }
 .app-error b { font-size: 18px; }
 .app-error p { color: var(--muted); }
+
+/* ================= Стикеровка ================= */
+/* Переключатель «Часы | Стикеровка» в «Табеле» */
+.seg { display: flex; gap: 4px; padding: 4px; margin: 4px 0 12px; border-radius: 999px; background: var(--surface-2); }
+.seg__btn {
+  flex: 1; min-height: 40px; border: 0; border-radius: 999px; background: none; color: var(--muted); font-weight: 600;
+}
+.seg__btn.is-on { background: var(--brand); color: var(--on-brand); box-shadow: 0 2px 6px var(--shadow); }
+.chip--wide { grid-column: 1 / -1; }
+.val--sticker { background: var(--sticker-soft); color: var(--sticker); }
+.tabel td.c--sticker { color: var(--sticker); font-weight: 700; background: var(--sticker-soft); }
+.legend__cell.c--sticker { color: var(--sticker); font-weight: 700; background: var(--sticker-soft); }
