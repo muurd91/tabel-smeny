@@ -82,6 +82,10 @@ const Cloud = (() => {
       const L = local[key], R = remote[key], B = baseDoc ? baseDoc[key] : undefined;
       if (Array.isArray(L) && Array.isArray(R)) {
         out[key] = mergeList(L, R, Array.isArray(B) ? B : null, localIsNewer);
+      } else if (Array.isArray(L) !== Array.isArray(R)) {
+        // Список есть только с одной стороны: другая о нём не знает (например, «stickers» с устройства на старой
+        // версии) — берём тот, что есть. Иначе более новый документ без этого поля стёр бы список.
+        out[key] = Array.isArray(L) ? L : R;
       } else if (baseDoc && B !== undefined && same(L, B)) {
         out[key] = R;                                // у нас не менялось — берём облачное
       } else if (baseDoc && B !== undefined && same(R, B)) {

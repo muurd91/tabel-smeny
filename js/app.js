@@ -387,14 +387,21 @@ function saveQuick() {
   const p = DB.data.people.find((x) => x.id === q.pid);
   if (!r || !p) return;
   if (r.k === 'sticker') {
-    // На все смены по графику в промежутке (первый день — всегда, даже выходной: вышел сверх графика)
+    // На все смены по графику в промежутке (первый день — всегда, даже выходной: вышел сверх графика),
+    // кроме дней, когда человека нет: больничный, отпуск, «−».
     const from = q.from || d;
     const until = q.until > from ? q.until : from;
+    const marks = Tabel.marksMap();
+    let skipped = 0;
     UI.qf = {};
     DB.update(() => {
-      for (let x = from; x <= until; x = Dates.add(x, 1)) if (x === from || Sched.type(x) !== 'В') Tabel.setSticker(x, p.id, true);
+      for (let x = from; x <= until; x = Dates.add(x, 1)) {
+        if (x !== from && Sched.type(x) === 'В') continue;
+        if (PLANNED.includes(marks.get(Tabel.markId(x, p.id))?.v)) { skipped++; continue; }
+        Tabel.setSticker(x, p.id, true);
+      }
     });
-    toast(`${Tabel.surname(p)}: стикеровка${until > from ? ` ${Dates.dm(from)}–${Dates.dm(until)}` : from !== d ? ` ${Dates.dm(from)}` : ''}`);
+    toast(`${Tabel.surname(p)}: стикеровка${until > from ? ` ${Dates.dm(from)}–${Dates.dm(until)}` : from !== d ? ` ${Dates.dm(from)}` : ''}${skipped ? ` (пропущено смен, где его нет: ${skipped})` : ''}`);
     return;
   }
   let v = r.v;
@@ -651,6 +658,32 @@ function scrollToToday(el) {
   if (wrap && th) wrap.scrollLeft = Math.max(0, th.offsetLeft - 112 - wrap.clientWidth / 3);
 }
 
+// Очередь на стикеровку: сверху — кто ещё не был или был давнее всех (по всей истории, не только за месяц).
+// Уже запланированные на будущие смены — в конце, с датой.
+function stickerQueueHtml(today) {
+  const active = DB.data.people.filter((p) => !p.archived);
+  if (!active.length) return '';
+  const last = new Map(), next = new Map(), total = new Map();
+  for (const s of DB.data.stickers) {
+    if (s.date <= today) {
+      if (!(last.get(s.pid) >= s.date)) last.set(s.pid, s.date);
+      total.set(s.pid, (total.get(s.pid) || 0) + 1);
+    } else if (!(next.get(s.pid) <= s.date)) next.set(s.pid, s.date);
+  }
+  const pos = new Map(active.map((p, i) => [p.id, i]));
+  const key = (p) => (next.has(p.id) ? `1${next.get(p.id)}` : `0${last.get(p.id) || ''}`);
+  const queue = [...active].sort((a, b) => key(a).localeCompare(key(b)) || pos.get(a.id) - pos.get(b.id));
+  const plural = (n) => (n % 10 === 1 && n % 100 !== 11 ? 'смена' : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? 'смены' : 'смен');
+  return `<div class="card queue"><h2>Очередь на стикеровку</h2>
+    <p class="small muted">Сверху — кто ещё не был или был давнее всех.</p>
+    <ol class="queue__list">${queue.map((p) => {
+      const when = next.has(p.id) ? `запланирован на ${Dates.dm(next.get(p.id))}`
+        : last.has(p.id) ? `последний раз ${Dates.dm(last.get(p.id))} · всего ${total.get(p.id)} ${plural(total.get(p.id))}` : 'ещё не был';
+      return `<li class="queue__row${next.has(p.id) ? ' is-planned' : ''}"><b>${esc(Tabel.shortName(p))}</b><span>${esc(when)}</span></li>`;
+    }).join('')}</ol>
+  </div>`;
+}
+
 // «Табель» → «Стикеровка»: та же сетка месяца без часов — «С» у тех, кто стоял на стикеровке;
 // справа — сколько таких смен. Нажатие на клетку ставит или снимает отметку. Только в приложении, не отправляется.
 function stickerTabelHtml(ym, days, types, today) {
@@ -673,6 +706,7 @@ function stickerTabelHtml(ym, days, types, today) {
       <tr><th class="name">${esc(DB.data.settings.shiftName)}</th>${head2}<th class="tot">Смен</th></tr>
       <tr><th class="name"></th>${head3}<th class="tot"></th></tr></thead>
       <tbody>${body}</tbody></table></div>
+    ${stickerQueueHtml(today)}
     <div class="card legend"><h2>Стикеровка</h2>
       <div class="legend__row mt-8"><span class="legend__cell c--sticker">С</span><span>работал на стикеровке; справа — сколько смен за месяц</span></div>
       <p class="small muted">Отметить: на «Смене» выбрать работника и «Стикеровка» (можно сразу на несколько смен) или нажать на клетку здесь. На часы и отправляемый табель не влияет.</p>
@@ -850,7 +884,7 @@ function addPerson() { editPerson(null); }
 
 function editPerson(id) {
   const p = id ? DB.data.people.find((x) => x.id === id) : null;
-  const hasMarks = p && DB.data.marks.some((m) => m.pid === p.id);
+  const hasMarks = p && [...DB.data.marks, ...DB.data.stickers].some((m) => m.pid === p.id); // и стикеровка — история очереди
   openSheet(`<h3>${p ? 'Изменить' : 'Новый человек'}</h3>
     <label class="field"><span class="field__label">ФИО</span><input class="input" id="pp-name" value="${esc(p?.name || '')}" placeholder="Фамилия Имя Отчество" autocomplete="off"></label>
     <label class="field"><span class="field__label">Должность</span><input class="input" id="pp-pos" value="${esc(p?.position || '')}" placeholder="например, машинист экструдера" autocomplete="off" list="pp-positions"></label>

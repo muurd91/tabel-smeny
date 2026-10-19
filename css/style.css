@@ -397,3 +397,11 @@ label.shiftbar__date { cursor: pointer; }
 .val--sticker { background: var(--sticker-soft); color: var(--sticker); }
 .tabel td.c--sticker { color: var(--sticker); font-weight: 700; background: var(--sticker-soft); }
 .legend__cell.c--sticker { color: var(--sticker); font-weight: 700; background: var(--sticker-soft); }
+/* Очередь на стикеровку */
+.queue { margin-top: 12px; }
+.queue__list { margin: 8px 0 0; padding-left: 26px; }
+.queue__row { padding: 8px 0; border-bottom: 1px solid var(--border); }
+.queue__row:last-child { border-bottom: 0; }
+.queue__row b { display: block; font-weight: 600; }
+.queue__row span { font-size: 14px; color: var(--muted); }
+.queue__row.is-planned span { color: var(--sticker); font-weight: 600; }
