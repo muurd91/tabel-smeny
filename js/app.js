@@ -661,7 +661,8 @@ function scrollToToday(el) {
 // Очередь на стикеровку: сверху — кто ещё не был или был давнее всех (по всей истории, не только за месяц).
 // Уже запланированные на будущие смены — в конце, с датой.
 function stickerQueueHtml(today) {
-  const active = DB.data.people.filter((p) => !p.archived);
+  // В очереди — только укладчики-упаковщики (на стикеровку ставят их); должность — из «Людей»
+  const active = DB.data.people.filter((p) => !p.archived && /укладчи/i.test(p.position || ''));
   if (!active.length) return '';
   const last = new Map(), next = new Map(), total = new Map();
   for (const s of DB.data.stickers) {
@@ -675,7 +676,7 @@ function stickerQueueHtml(today) {
   const queue = [...active].sort((a, b) => key(a).localeCompare(key(b)) || pos.get(a.id) - pos.get(b.id));
   const plural = (n) => (n % 10 === 1 && n % 100 !== 11 ? 'смена' : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? 'смены' : 'смен');
   return `<div class="card queue"><h2>Очередь на стикеровку</h2>
-    <p class="small muted">Сверху — кто ещё не был или был давнее всех.</p>
+    <p class="small muted">Укладчики-упаковщики. Сверху — кто ещё не был или был давнее всех.</p>
     <ol class="queue__list">${queue.map((p) => {
       const when = next.has(p.id) ? `запланирован на ${Dates.dm(next.get(p.id))}`
         : last.has(p.id) ? `последний раз ${Dates.dm(last.get(p.id))} · всего ${total.get(p.id)} ${plural(total.get(p.id))}` : 'ещё не был';
