@@ -258,6 +258,12 @@ const Reports = (() => {
       await Telegram.sendFiles(fs, prefix + caption);
       await Telegram.sendText(summary(ym, prefix + caption));
     }
+    // Следом — картинка стикеровки за тот же период (если кто-то на ней был). Табель уже ушёл,
+    // поэтому сбой здесь не ошибка отправки: иначе планировщик не поставит «отправлено» и табель уйдёт повторно.
+    if (hasStickers(ym)) {
+      try { await sendSticker(ym, prefix); }
+      catch (e) { console.warn(`Стикеровка не отправлена: ${e.message}`); }
+    }
   }
 
   // «Смена 1 — табель за октябрь 2026, с 01 по 16.10» (месяц ещё идёт) или «… за сентябрь 2026» (весь месяц).
@@ -268,16 +274,24 @@ const Reports = (() => {
   }
 
   // ---------- Стикеровка ----------
-  // Только картинка и только вручную («Табель» → «Стикеровка»): в группу и во второй чат, если он выбран. На почту — нет.
+  // Только картинка: вместе с табелем 16-го и 1-го (sendTelegram) и вручную из «Табель» → «Стикеровка».
+  // В группу, во второй чат (если выбран) и в личный чат мастера («Уведомления мне»). На почту — нет.
   const stickerCaption = (ym) => periodCaption(ym).replace(' — табель за ', ' — стикеровка за ');
   async function stickerFile(ym) {
     const png = await Tabel.asFact(() => Snapshot.stickerPng(ym, `по состоянию на ${nowDm()}`)); // по факту
     return new File([png], `Стикеровка ${Dates.monthTitle(ym)}.png`, { type: 'image/png' });
   }
-  async function sendSticker(ym) {
+  // Была ли стикеровка в этом месяце за начавшиеся смены
+  const hasStickers = (ym) => DB.data.stickers.some((x) => x.date.startsWith(ym) && Sched.started(x.date));
+  // Куда слать: группа, второй чат, личный — без повторов, если это один и тот же чат
+  function stickerChats() {
+    const cfg = Telegram.cfg();
+    const keys = ['chatId', ...(Telegram.fullReady() ? ['fullChatId'] : []), ...(Telegram.meReady() ? ['meId'] : [])];
+    return keys.filter((k, i) => keys.findIndex((x) => String(cfg[x]) === String(cfg[k])) === i);
+  }
+  async function sendSticker(ym, prefix = '') {
     const f = await stickerFile(ym);
-    await Telegram.sendDoc(f, stickerCaption(ym));
-    if (Telegram.fullReady()) await Telegram.sendDoc(f, stickerCaption(ym), 'fullChatId');
+    for (const key of stickerChats()) await Telegram.sendDoc(f, prefix + stickerCaption(ym), key);
   }
   async function shareSticker(ym) {
     const f = await stickerFile(ym);

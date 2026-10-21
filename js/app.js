@@ -738,7 +738,7 @@ function stickerTabelHtml(ym, days, types, today) {
         <div class="legend__row"><span class="legend__cell">${num(DB.data.settings.dayHours)}</span><span>на станках</span></div>
         <div class="legend__row"><span class="legend__cell c--sticker">С</span><span>стикеровка без часов: смена не началась или выходной без выхода</span></div>
       </div>
-      <p class="small muted">Отметить: на «Смене» выбрать работника и «Стикеровка» (можно сразу на несколько смен) или нажать на клетку здесь. Нажатие на отмеченную клетку — сколько часов на стикеровке. Часы смены берутся из табеля; сам табель стикеровка не меняет. «В Telegram» — картинка в группу${Telegram.fullReady() ? ' и во второй чат' : ''}, на почту не уходит.</p>
+      <p class="small muted">Отметить: на «Смене» выбрать работника и «Стикеровка» (можно сразу на несколько смен) или нажать на клетку здесь. Нажатие на отмеченную клетку — сколько часов на стикеровке. Часы смены берутся из табеля; сам табель стикеровка не меняет. Картинка уходит в Telegram сама вместе с табелем 16-го и 1-го (если в периоде была стикеровка) — в группу${Telegram.fullReady() ? ', во второй чат' : ''}${Telegram.meReady() ? ' и вам в личку' : ''}; «В Telegram» — отправить сейчас. На почту не уходит.</p>
     </div>`;
 }
 
@@ -812,7 +812,7 @@ function sendStickerTelegram() {
   const ym = UI.month;
   const cfg = Telegram.cfg();
   openSheet(`<h3>Отправить стикеровку</h3><p class="sheet__sub">${esc(Dates.monthTitle(ym))} · только картинка</p>
-    <p class="small muted">В «${esc(cfg.chatTitle || 'группа')}»${Telegram.fullReady() ? ` и «${esc(cfg.fullChatTitle || 'второй чат')}»` : ''}. На почту не уходит.</p>
+    <p class="small muted">В «${esc(cfg.chatTitle || 'группа')}»${Telegram.fullReady() ? `, «${esc(cfg.fullChatTitle || 'второй чат')}»` : ''}${Telegram.meReady() ? ' и вам в личку' : ''}. На почту не уходит.</p>
     <div class="sheet__actions"><button class="btn" value="cancel">Отмена</button><button class="btn btn--primary" data-go type="button">Отправить</button></div>`, (b) => {
     b.onclick = async (ev) => {
       const btn = ev.target.closest('[data-go]');

@@ -2,7 +2,7 @@
 // Запускает .github/workflows/send.yml 16-го и 1-го числа в 11:00 по Минску.
 // Берёт табель из Firestore (users/<uid>/apps/tabel), рисует картинку и Excel теми же модулями, что и приложение
 // (js/*.js выполняются здесь с заменой браузерных объектов), и отправляет ботом из настроек приложения
-// и письмом на адреса из приложения (если заданы секреты MAIL_USER и MAIL_PASS).
+// (вместе с табелем — картинка стикеровки, если она была; только в Telegram) и письмом на адреса из приложения (если заданы секреты MAIL_USER и MAIL_PASS).
 // Потом отмечает в Firestore, что ушло (tgSentAt, mailSentAt), — повторно не отправится.
 //
 // MODE: auto — по расписанию (только 1-го и 16-го, если ещё не отправлено);
@@ -61,13 +61,19 @@ if (MODE === 'selftest') {
       { id: `${ym}-04|p2`, date: `${ym}-04`, pid: 'p2', v: '-', reason: 'заявление за свой счёт' },
       { id: `${ym}-03|p3`, date: `${ym}-03`, pid: 'p3', v: 9, reason: 'заявление' },
     ],
+    stickers: [
+      { id: `${ym}-01|p1`, date: `${ym}-01`, pid: 'p1' },
+      { id: `${ym}-03|p2`, date: `${ym}-03`, pid: 'p2', h: 4.5 },
+    ],
   }));
   const files = await run(`(async () => { const r = Reports.active(); return { r, files: await (async () => {
     const png = await Snapshot.png(r.ym, 'проверка'); return [png, Xlsx.build(r.ym)]; })() }; })()`);
   fs.mkdirSync(path.join(root, 'out'), { recursive: true });
   fs.writeFileSync(path.join(root, 'out', 'selftest.png'), Buffer.from(await files.files[0].arrayBuffer()));
   fs.writeFileSync(path.join(root, 'out', 'selftest.xlsx'), Buffer.from(await files.files[1].arrayBuffer()));
-  console.log('selftest: out/selftest.png, out/selftest.xlsx;', run('Reports.summary(Reports.active().ym, "проверка")'));
+  const sticker = await run(`Snapshot.stickerPng('${ym}', 'проверка')`);
+  fs.writeFileSync(path.join(root, 'out', 'selftest-sticker.png'), Buffer.from(await sticker.arrayBuffer()));
+  console.log('selftest: out/selftest.png, out/selftest.xlsx, out/selftest-sticker.png;', run('Reports.summary(Reports.active().ym, "проверка")'));
   process.exit(0);
 }
 
