@@ -302,7 +302,7 @@ function quickForm(d, t, people, map) {
         <label class="field grow field--tight"><span class="field__label">По (включительно)</span><input class="input" id="qf-until" type="date" min="${esc(from)}" value="${esc(q.until && q.until > from ? q.until : from)}"></label>
       </div>
       ${r.k === 'sticker' ? `<label class="field field--tight"><span class="field__label">Часов на стикеровке (остальное — станки)</span>
-        <input class="input input--short" id="qf-sthours" type="number" inputmode="decimal" min="0.5" max="24" step="0.5" value="${esc(q.stHours || '')}" placeholder="вся смена"></label>` : ''}
+        <input class="input input--short" id="qf-sthours" type="text" inputmode="decimal" autocomplete="off" value="${esc(q.stHours || '')}" placeholder="вся смена"></label>` : ''}
       <div class="small muted">${r.k === 'sticker' ? 'Табель не меняется. Отметка — в «Табеле» → «Стикеровка», на все смены по графику в этом промежутке.' : from > Dates.today() ? 'Будущая дата — бот напишет вам в личку, в «Скоро не будет» появится запись.' : 'Отметка встанет на все смены по графику в этом промежутке.'}</div>`;
   }
   const ready = q.pid && r;
@@ -394,8 +394,8 @@ function saveQuick() {
     // кроме дней, когда человека нет: больничный, отпуск, «−».
     const from = q.from || d;
     const until = q.until > from ? q.until : from;
-    const h = q.stHours ? parseFloat(String(q.stHours).replace(',', '.')) : undefined; // пусто — вся смена
-    if (h !== undefined && !(h > 0 && h <= 24)) { toast('Часы на стикеровке — от 0,5 до 24 или пусто (вся смена)'); return; }
+    const h = String(q.stHours || '').trim() ? parseHours(q.stHours) : undefined; // пусто — вся смена; можно 4,5 или 4:30
+    if (h !== undefined && !(h > 0 && h <= 24)) { toast('Часы на стикеровке — например, 4,5 или 4:30; пусто — вся смена'); return; }
     const marks = Tabel.marksMap();
     let skipped = 0;
     UI.qf = {};
@@ -742,6 +742,15 @@ function stickerTabelHtml(ym, days, types, today) {
     </div>`;
 }
 
+// Часы стикеровки: «4,5», «4.5», «4:30», «4 ч 30 мин» → 4.5 (до сотых); не разобрать — NaN.
+function parseHours(str) {
+  const t = String(str ?? '').trim().toLowerCase().replace(',', '.');
+  const m = t.match(/^(\d+(?:\.\d+)?)\s*(?:ч\.?|час\S*)?\s*(?:[:\s]\s*(\d{1,2})\s*(?:м\S*)?)?$/);
+  if (!m) return NaN;
+  return Math.round((Number(m[1]) + (m[2] ? Number(m[2]) / 60 : 0)) * 100) / 100;
+}
+const fmtHours = (n) => String(Math.round(n * 100) / 100).replace('.', ',');
+
 // Сколько часов на стикеровке у отмеченной клетки (остальное — станки), или снять отметку.
 function openStickerEditor(pid, date) {
   const p = DB.data.people.find((x) => x.id === pid);
@@ -753,17 +762,18 @@ function openStickerEditor(pid, date) {
   openSheet(`<h3>${esc(p.name)}</h3>
     <p class="sheet__sub">${esc(dateTitle(date, true))} · стикеровка</p>
     <div class="extra-box">
-      <div class="field__label">Часов на стикеровке (смена — ${String(shift).replace('.', ',')} ч)</div>
-      <div class="stepper"><button class="btn btn--icon" data-step="-1" type="button">−</button>
-        <input class="input input--short" id="st-hours" type="number" inputmode="decimal" min="0.5" max="${shift}" step="0.5" value="${hours}">
-        <button class="btn btn--icon" data-step="1" type="button">+</button></div>
-      <div class="small muted" id="st-rest"></div>
+      <div class="field__label">Часов на стикеровке (смена — ${fmtHours(shift)} ч)</div>
+      <div class="stepper"><button class="btn btn--icon" data-step="-0.5" type="button" aria-label="Меньше на полчаса">−</button>
+        <input class="input input--short" id="st-hours" type="text" inputmode="decimal" autocomplete="off" value="${fmtHours(hours)}">
+        <button class="btn btn--icon" data-step="0.5" type="button" aria-label="Больше на полчаса">+</button></div>
+      <div class="small muted">Можно неполные: 4,5 или 4:30 (4 ч 30 мин), 2,25 — 2 ч 15 мин. Кнопки — по полчаса.</div>
+      <div class="small" id="st-rest"></div>
     </div>
     <div class="row mt-12"><button class="btn grow" data-full type="button">Вся смена</button><button class="btn grow" data-off type="button">Снять со стикеровки</button></div>
     <div class="sheet__actions"><button class="btn" value="cancel">Отмена</button><button class="btn btn--primary" data-save type="button">Сохранить</button></div>`, (b) => {
     const rest = () => {
-      const h = parseFloat(String(hours).replace(',', '.'));
-      $('#st-rest', b).textContent = h > 0 && h < shift ? `На станках — ${String(shift - h).replace('.', ',')} ч` : h >= shift ? 'Вся смена на стикеровке' : '';
+      const h = parseHours(hours);
+      $('#st-rest', b).textContent = h > 0 && h < shift ? `На станках — ${fmtHours(shift - h)} ч` : h >= shift ? 'Вся смена на стикеровке' : hours === '' ? '' : 'Не понял часы — например, 4,5 или 4:30';
     };
     rest();
     b.oninput = (e) => { if (e.target.id === 'st-hours') { hours = e.target.value; rest(); } };
@@ -775,8 +785,8 @@ function openStickerEditor(pid, date) {
     b.onclick = (e) => {
       const st = e.target.closest('[data-step]');
       if (st) {
-        hours = Math.min(shift, Math.max(0.5, (parseFloat(String(hours).replace(',', '.')) || 0) + Number(st.dataset.step)));
-        $('#st-hours', b).value = hours;
+        hours = Math.min(shift, Math.max(0.5, (parseHours(hours) || 0) + Number(st.dataset.step)));
+        $('#st-hours', b).value = fmtHours(hours);
         rest();
         return;
       }
@@ -788,10 +798,10 @@ function openStickerEditor(pid, date) {
         return;
       }
       if (e.target.closest('[data-save]')) {
-        const h = parseFloat(String(hours).replace(',', '.'));
-        if (!(h > 0)) { toast('Укажите часы больше нуля или «Снять со стикеровки»'); return; }
+        const h = parseHours(hours);
+        if (!(h > 0)) { toast('Укажите часы больше нуля (например, 4,5 или 4:30) или «Снять со стикеровки»'); return; }
         if (h >= shift) set(undefined, 'вся смена на стикеровке');
-        else set(h, `${String(h).replace('.', ',')} ч стикеровка, ${String(shift - h).replace('.', ',')} ч станки`);
+        else set(h, `${fmtHours(h)} ч стикеровка, ${fmtHours(shift - h)} ч станки`);
       }
     };
   });
