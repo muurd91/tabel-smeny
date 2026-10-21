@@ -410,3 +410,8 @@ label.shiftbar__date { cursor: pointer; }
   display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; vertical-align: 1px;
   background: var(--sticker); color: #fff; font-size: 12px; font-weight: 700;
 }
+.tabel .tot--sticker { color: var(--sticker); background: var(--sticker-soft); }
+.legend__cell.c--split { flex-direction: column; }
+.tabel td.c--split, .legend__cell.c--split { line-height: 1; font-size: 12px; }
+.c--split b, .c--split small { display: block; }
+.c--split small { font-size: 10px; font-weight: 500; color: var(--text); margin-top: 2px; }

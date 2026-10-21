@@ -15,7 +15,7 @@ function emptyData() {
     people: [],     // { id, name, position, archived } — порядок массива = порядок в табеле
     marks: [],      // { id: 'YYYY-MM-DD|personId', date, pid, v, reason } — v: число часов или код ('Б', 'ОТ', '-', '')
     notes: [],      // свободные примечания к месяцу: { id, month: 'YYYY-MM', text }
-    stickers: [],   // кто на стикеровке: { id: 'YYYY-MM-DD|personId', date, pid } — на часы не влияет, только отметка
+    stickers: [],   // кто на стикеровке: { id: 'YYYY-MM-DD|personId', date, pid, h? } — h часов на стикеровке (нет — вся смена); на табель не влияет
     reports: [],    // снимки 16-го и 1-го: { id: 'YYYY-MM-16' | 'YYYY-MM-final', savedAt, sentAt, dismissed }
   };
 }
@@ -244,10 +244,27 @@ const Tabel = {
   // Стикеровка — отдельная отметка «где работал»: на часы и отправляемый табель не влияет.
   stickerSet() { return new Set(DB.data.stickers.map((s) => s.id)); },
   isSticker(date, pid, set = this.stickerSet()) { return set.has(this.markId(date, pid)); },
-  setSticker(date, pid, on) {
+  // h — сколько часов смены на стикеровке (без h — вся смена); остальные часы — на станках.
+  setSticker(date, pid, on, h) {
     const id = this.markId(date, pid);
     DB.data.stickers = DB.data.stickers.filter((s) => s.id !== id);
-    if (on) DB.data.stickers.push({ id, date, pid });
+    if (on) DB.data.stickers.push({ id, date, pid, ...(h > 0 ? { h } : {}) });
+  },
+  stickerMap() { return new Map(DB.data.stickers.map((s) => [s.id, s])); },
+  // Часы смены по местам: { on, v, worked, st — на стикеровке, mach — на станках }. Часы — из табеля (отметки и график).
+  split(pid, date, map = this.marksMap(), stickers = this.stickerMap()) {
+    const v = this.cell(pid, date, map);
+    const worked = typeof v === 'number' ? v : 0;
+    const s = this.factOnly && !Sched.started(date) ? null : stickers.get(this.markId(date, pid));
+    const st = s ? Math.min(s.h ?? worked, worked) : 0;
+    return { on: !!s, v, worked, st, mach: worked - st };
+  },
+  // Итого за месяц: { st, mach }
+  splitTotal(pid, ym, map = this.marksMap(), stickers = this.stickerMap()) {
+    return Dates.monthDays(ym).reduce((t, d) => {
+      const x = this.split(pid, d, map, stickers);
+      return { st: t.st + x.st, mach: t.mach + x.mach };
+    }, { st: 0, mach: 0 });
   },
   stickerCount(pid, ym, set = this.stickerSet()) {
     return Dates.monthDays(ym).filter((d) => set.has(this.markId(d, pid))).length;

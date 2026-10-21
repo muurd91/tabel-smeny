@@ -149,12 +149,13 @@ function renderShift() {
   } else if (t !== 'В' && Sched.started(d)) {
     html += `<p class="hint">Отсутствующих нет — все на смене.</p>`;
   }
-  // Кто на стикеровке в эту смену (на часы не влияет)
-  const stickerSet = Tabel.stickerSet();
-  const onSticker = people.filter((p) => Tabel.isSticker(d, p.id, stickerSet));
+  // Кто на стикеровке в эту смену (на табель не влияет); часы — нажатием на клетку в «Табеле» → «Стикеровка»
+  const stickers = Tabel.stickerMap();
+  const onSticker = people.filter((p) => stickers.has(Tabel.markId(d, p.id)));
   if (onSticker.length) {
+    const hoursOf = (p) => { const h = stickers.get(Tabel.markId(d, p.id)).h; return h ? ` · ${String(h).replace('.', ',')} ч, остальное — станки` : ''; };
     html += `<div class="list-head">На стикеровке</div>
-      <div class="list">${onSticker.map((p) => `<div class="marked"><div class="person"><span class="person__info"><span class="person__name">${esc(Tabel.shortName(p))}</span><br><span class="person__sub">${esc(p.position || '')}</span></span><span class="val val--sticker">С</span></div><button class="btn btn--icon marked__x" data-unsticker="${p.id}" type="button" aria-label="Снять со стикеровки">${ICON.x}</button></div>`).join('')}</div>`;
+      <div class="list">${onSticker.map((p) => `<div class="marked"><div class="person"><span class="person__info"><span class="person__name">${esc(Tabel.shortName(p))}</span><br><span class="person__sub">${esc((p.position || '') + hoursOf(p))}</span></span><span class="val val--sticker">С</span></div><button class="btn btn--icon marked__x" data-unsticker="${p.id}" type="button" aria-label="Снять со стикеровки">${ICON.x}</button></div>`).join('')}</div>`;
   }
   html += `<details class="all"${UI.showAll ? ' open' : ''}><summary>Все работники (${people.length})</summary>
     <div class="list">${people.map(row).join('')}</div></details>`;
@@ -300,7 +301,9 @@ function quickForm(d, t, people, map) {
         <label class="field grow field--tight"><span class="field__label">С</span><input class="input" id="qf-from" type="date" value="${esc(from)}"></label>
         <label class="field grow field--tight"><span class="field__label">По (включительно)</span><input class="input" id="qf-until" type="date" min="${esc(from)}" value="${esc(q.until && q.until > from ? q.until : from)}"></label>
       </div>
-      <div class="small muted">${r.k === 'sticker' ? 'Часы не меняются. Отметка — в «Табеле» → «Стикеровка», на все смены по графику в этом промежутке.' : from > Dates.today() ? 'Будущая дата — бот напишет вам в личку, в «Скоро не будет» появится запись.' : 'Отметка встанет на все смены по графику в этом промежутке.'}</div>`;
+      ${r.k === 'sticker' ? `<label class="field field--tight"><span class="field__label">Часов на стикеровке (остальное — станки)</span>
+        <input class="input input--short" id="qf-sthours" type="number" inputmode="decimal" min="0.5" max="24" step="0.5" value="${esc(q.stHours || '')}" placeholder="вся смена"></label>` : ''}
+      <div class="small muted">${r.k === 'sticker' ? 'Табель не меняется. Отметка — в «Табеле» → «Стикеровка», на все смены по графику в этом промежутке.' : from > Dates.today() ? 'Будущая дата — бот напишет вам в личку, в «Скоро не будет» появится запись.' : 'Отметка встанет на все смены по графику в этом промежутке.'}</div>`;
   }
   const ready = q.pid && r;
   return `<div class="card qf">
@@ -391,6 +394,8 @@ function saveQuick() {
     // кроме дней, когда человека нет: больничный, отпуск, «−».
     const from = q.from || d;
     const until = q.until > from ? q.until : from;
+    const h = q.stHours ? parseFloat(String(q.stHours).replace(',', '.')) : undefined; // пусто — вся смена
+    if (h !== undefined && !(h > 0 && h <= 24)) { toast('Часы на стикеровке — от 0,5 до 24 или пусто (вся смена)'); return; }
     const marks = Tabel.marksMap();
     let skipped = 0;
     UI.qf = {};
@@ -398,10 +403,10 @@ function saveQuick() {
       for (let x = from; x <= until; x = Dates.add(x, 1)) {
         if (x !== from && Sched.type(x) === 'В') continue;
         if (PLANNED.includes(marks.get(Tabel.markId(x, p.id))?.v)) { skipped++; continue; }
-        Tabel.setSticker(x, p.id, true);
+        Tabel.setSticker(x, p.id, true, h);
       }
     });
-    toast(`${Tabel.surname(p)}: стикеровка${until > from ? ` ${Dates.dm(from)}–${Dates.dm(until)}` : from !== d ? ` ${Dates.dm(from)}` : ''}${skipped ? ` (пропущено смен, где его нет: ${skipped})` : ''}`);
+    toast(`${Tabel.surname(p)}: стикеровка${h ? ` ${String(h).replace('.', ',')} ч` : ''}${until > from ? ` ${Dates.dm(from)}–${Dates.dm(until)}` : from !== d ? ` ${Dates.dm(from)}` : ''}${skipped ? ` (пропущено смен, где его нет: ${skipped})` : ''}`);
     return;
   }
   let v = r.v;
@@ -453,6 +458,7 @@ $('#view-shift').addEventListener('change', (e) => {
 });
 $('#view-shift').addEventListener('input', (e) => {
   if (e.target.id === 'qf-hours') UI.qf.hours = e.target.value;
+  else if (e.target.id === 'qf-sthours') UI.qf.stHours = e.target.value;
   else if (e.target.id === 'qf-text') UI.qf.text = e.target.value;
   else if (e.target.id === 'qf-until') UI.qf.until = e.target.value;
 });
@@ -690,33 +696,123 @@ function stickerQueueHtml(today) {
   </div>`;
 }
 
-// «Табель» → «Стикеровка»: та же сетка месяца без часов — «С» у тех, кто стоял на стикеровке;
-// справа — сколько таких смен. Нажатие на клетку ставит или снимает отметку. Только в приложении, не отправляется.
+// «Табель» → «Стикеровка»: та же сетка месяца, в клетке — часы смены: коричневая — на стикеровке
+// (два числа — сверху стикеровка, снизу станки), обычная — на станках; справа — итого по местам.
+// Нажатие на пустую клетку ставит стикеровку на всю смену, на отмеченную — часы или снять.
+// Картинку можно отправить в Telegram вручную; в табель, Excel и на почту не попадает.
 function stickerTabelHtml(ym, days, types, today) {
   const people = DB.data.people.filter((p) => !p.archived || DB.data.stickers.some((s) => s.pid === p.id && s.date.startsWith(ym)));
   if (!people.length) return '<div class="card empty"><b>В этом месяце никого нет</b>Добавьте людей на вкладке «Люди».</div>';
-  const set = Tabel.stickerSet();
+  const map = Tabel.marksMap();
+  const stickers = Tabel.stickerMap();
+  const num = (n) => String(n).replace('.', ',');
   const head1 = days.map((d, i) => `<th class="${types[i]}">${Dates.WD[Dates.wd(d)]}</th>`).join('');
   const head2 = days.map((d, i) => `<th class="${types[i]}${d === today ? ' is-today' : ''}">${i + 1}</th>`).join('');
   const head3 = days.map((d, i) => `<th class="${types[i]}">${types[i] === 'В' ? '' : types[i]}</th>`).join('');
   const body = people.map((p) => {
     const cells = days.map((d, i) => {
-      const on = set.has(Tabel.markId(d, p.id));
-      return `<td class="c ${types[i]}${on ? ' c--sticker' : ''}" data-sticker-pid="${p.id}" data-date="${d}">${on ? 'С' : ''}</td>`;
+      const c = Tabel.split(p.id, d, map, stickers);
+      const at = `data-sticker-pid="${p.id}" data-date="${d}"`;
+      if (c.on && c.st && c.mach) return `<td class="c ${types[i]} c--sticker c--split" ${at}><b>${num(c.st)}</b><small>${num(c.mach)}</small></td>`;
+      if (c.on) return `<td class="c ${types[i]} c--sticker" ${at}>${c.st ? num(c.st) : 'С'}</td>`;
+      return `<td class="c ${types[i]} c--mach" ${at}>${c.v === '' ? '' : esc(valText(c.v))}</td>`;
     }).join('');
-    const n = Tabel.stickerCount(p.id, ym, set);
-    return `<tr><th class="name" title="${esc(p.name)}">${esc(Tabel.shortName(p))}</th>${cells}<td class="tot">${n || ''}</td></tr>`;
+    const t = Tabel.splitTotal(p.id, ym, map, stickers);
+    return `<tr><th class="name" title="${esc(p.name)}">${esc(Tabel.shortName(p))}</th>${cells}<td class="tot tot--sticker">${t.st ? num(t.st) : ''}</td><td class="tot">${num(t.mach)}</td></tr>`;
   }).join('');
-  return `<div class="tabel-wrap"><table class="tabel">
-      <thead><tr><th class="name"></th>${head1}<th class="tot"></th></tr>
-      <tr><th class="name">${esc(DB.data.settings.shiftName)}</th>${head2}<th class="tot">Смен</th></tr>
-      <tr><th class="name"></th>${head3}<th class="tot"></th></tr></thead>
+  const tg = Telegram.ready();
+  return `<div class="row mb-12">
+      ${tg ? `<button class="btn btn--primary grow" data-act="sticker-tg" type="button">${ICON.share} В Telegram</button>` : ''}
+      <button class="btn${tg ? ' btn--icon' : ' btn--primary grow'}" data-act="sticker-share" type="button" aria-label="Поделиться картинкой">${ICON.share}${tg ? '' : ' Отправить картинку'}</button>
+    </div>
+    <div class="tabel-wrap"><table class="tabel">
+      <thead><tr><th class="name"></th>${head1}<th class="tot tot--sticker"></th><th class="tot"></th></tr>
+      <tr><th class="name">${esc(DB.data.settings.shiftName)}</th>${head2}<th class="tot tot--sticker">Стик.</th><th class="tot">Станки</th></tr>
+      <tr><th class="name"></th>${head3}<th class="tot tot--sticker">ч</th><th class="tot">ч</th></tr></thead>
       <tbody>${body}</tbody></table></div>
     ${stickerQueueHtml(today)}
     <div class="card legend"><h2>Стикеровка</h2>
-      <div class="legend__row mt-8"><span class="legend__cell c--sticker">С</span><span>работал на стикеровке; справа — сколько смен за месяц</span></div>
-      <p class="small muted">Отметить: на «Смене» выбрать работника и «Стикеровка» (можно сразу на несколько смен) или нажать на клетку здесь. На часы и отправляемый табель не влияет.</p>
+      <div class="legend__grid">
+        <div class="legend__row"><span class="legend__cell c--sticker">${num(DB.data.settings.dayHours)}</span><span>вся смена на стикеровке</span></div>
+        <div class="legend__row"><span class="legend__cell c--sticker c--split"><b>4</b><small>${num(DB.data.settings.dayHours - 4)}</small></span><span>часть смены: сверху — стикеровка, снизу — станки</span></div>
+        <div class="legend__row"><span class="legend__cell">${num(DB.data.settings.dayHours)}</span><span>на станках</span></div>
+        <div class="legend__row"><span class="legend__cell c--sticker">С</span><span>стикеровка без часов: смена не началась или выходной без выхода</span></div>
+      </div>
+      <p class="small muted">Отметить: на «Смене» выбрать работника и «Стикеровка» (можно сразу на несколько смен) или нажать на клетку здесь. Нажатие на отмеченную клетку — сколько часов на стикеровке. Часы смены берутся из табеля; сам табель стикеровка не меняет. «В Telegram» — картинка в группу${Telegram.fullReady() ? ' и во второй чат' : ''}, на почту не уходит.</p>
     </div>`;
+}
+
+// Сколько часов на стикеровке у отмеченной клетки (остальное — станки), или снять отметку.
+function openStickerEditor(pid, date) {
+  const p = DB.data.people.find((x) => x.id === pid);
+  const s = Tabel.stickerMap().get(Tabel.markId(date, pid));
+  if (!p || !s) return;
+  const c = Tabel.split(pid, date);
+  const shift = c.worked || Sched.hours(date) || DB.data.settings.dayHours; // смена ещё не началась — по графику
+  let hours = s.h ?? shift;
+  openSheet(`<h3>${esc(p.name)}</h3>
+    <p class="sheet__sub">${esc(dateTitle(date, true))} · стикеровка</p>
+    <div class="extra-box">
+      <div class="field__label">Часов на стикеровке (смена — ${String(shift).replace('.', ',')} ч)</div>
+      <div class="stepper"><button class="btn btn--icon" data-step="-1" type="button">−</button>
+        <input class="input input--short" id="st-hours" type="number" inputmode="decimal" min="0.5" max="${shift}" step="0.5" value="${hours}">
+        <button class="btn btn--icon" data-step="1" type="button">+</button></div>
+      <div class="small muted" id="st-rest"></div>
+    </div>
+    <div class="row mt-12"><button class="btn grow" data-full type="button">Вся смена</button><button class="btn grow" data-off type="button">Снять со стикеровки</button></div>
+    <div class="sheet__actions"><button class="btn" value="cancel">Отмена</button><button class="btn btn--primary" data-save type="button">Сохранить</button></div>`, (b) => {
+    const rest = () => {
+      const h = parseFloat(String(hours).replace(',', '.'));
+      $('#st-rest', b).textContent = h > 0 && h < shift ? `На станках — ${String(shift - h).replace('.', ',')} ч` : h >= shift ? 'Вся смена на стикеровке' : '';
+    };
+    rest();
+    b.oninput = (e) => { if (e.target.id === 'st-hours') { hours = e.target.value; rest(); } };
+    const set = (h, msg) => {
+      DB.update(() => Tabel.setSticker(date, pid, true, h));
+      sheet.close();
+      toast(`${Tabel.surname(p)} ${Dates.dm(date)}: ${msg}`);
+    };
+    b.onclick = (e) => {
+      const st = e.target.closest('[data-step]');
+      if (st) {
+        hours = Math.min(shift, Math.max(0.5, (parseFloat(String(hours).replace(',', '.')) || 0) + Number(st.dataset.step)));
+        $('#st-hours', b).value = hours;
+        rest();
+        return;
+      }
+      if (e.target.closest('[data-full]')) { set(undefined, 'вся смена на стикеровке'); return; }
+      if (e.target.closest('[data-off]')) {
+        DB.update(() => Tabel.setSticker(date, pid, false));
+        sheet.close();
+        toast(`${Tabel.surname(p)} ${Dates.dm(date)}: снят со стикеровки`);
+        return;
+      }
+      if (e.target.closest('[data-save]')) {
+        const h = parseFloat(String(hours).replace(',', '.'));
+        if (!(h > 0)) { toast('Укажите часы больше нуля или «Снять со стикеровки»'); return; }
+        if (h >= shift) set(undefined, 'вся смена на стикеровке');
+        else set(h, `${String(h).replace('.', ',')} ч стикеровка, ${String(shift - h).replace('.', ',')} ч станки`);
+      }
+    };
+  });
+}
+
+// Картинка стикеровки в Telegram: в группу и во второй чат (если выбран)
+function sendStickerTelegram() {
+  const ym = UI.month;
+  const cfg = Telegram.cfg();
+  openSheet(`<h3>Отправить стикеровку</h3><p class="sheet__sub">${esc(Dates.monthTitle(ym))} · только картинка</p>
+    <p class="small muted">В «${esc(cfg.chatTitle || 'группа')}»${Telegram.fullReady() ? ` и «${esc(cfg.fullChatTitle || 'второй чат')}»` : ''}. На почту не уходит.</p>
+    <div class="sheet__actions"><button class="btn" value="cancel">Отмена</button><button class="btn btn--primary" data-go type="button">Отправить</button></div>`, (b) => {
+    b.onclick = async (ev) => {
+      const btn = ev.target.closest('[data-go]');
+      if (!btn) return;
+      btn.disabled = true;
+      btn.textContent = 'Отправляю…';
+      try { await Reports.sendSticker(ym); sheet.close(); toast('Стикеровка отправлена в Telegram'); }
+      catch (err) { sheet.close(); toast(err.message); }
+    };
+  });
 }
 
 function xlsxFile() {
@@ -769,10 +865,14 @@ $('#view-tabel').addEventListener('click', async (e) => {
   const st = e.target.closest('td[data-sticker-pid]');
   if (st) {
     const { stickerPid: pid, date } = st.dataset;
-    const on = !Tabel.isSticker(date, pid);
+    if (Tabel.isSticker(date, pid)) { openStickerEditor(pid, date); return; }
     const p = DB.data.people.find((x) => x.id === pid);
-    DB.update(() => Tabel.setSticker(date, pid, on));
-    toast(`${Tabel.surname(p)} ${Dates.dm(date)}: ${on ? 'стикеровка' : 'снят со стикеровки'}`);
+    DB.update(() => Tabel.setSticker(date, pid, true));
+    toast(`${Tabel.surname(p)} ${Dates.dm(date)}: стикеровка на всю смену — нажмите ещё раз, чтобы указать часы`);
+  }
+  if (act === 'sticker-tg') sendStickerTelegram();
+  else if (act === 'sticker-share') {
+    try { await Reports.shareSticker(UI.month); } catch (err) { toast(err.message || 'Не удалось отправить'); }
   }
   const m = e.target.closest('[data-mode]')?.dataset.mode;
   if (m && m !== UI.tabelMode) { UI.tabelMode = m; store.set('ts.tabelMode', m); render(); }

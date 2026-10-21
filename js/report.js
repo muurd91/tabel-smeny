@@ -11,6 +11,114 @@ const Snapshot = (() => {
     font: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
   };
   const SCALE = 2;
+  const fillOf = (t) => (t === 'Д' ? C.day : t === 'Н' ? C.night : null);
+  const num = (n) => String(n).replace('.', ',');
+
+  // Белый холст W×H и рисование клеток и текста на нём
+  function surface(W, H) {
+    const cv = document.createElement('canvas');
+    cv.width = W * SCALE;
+    cv.height = H * SCALE;
+    const g = cv.getContext('2d');
+    g.scale(SCALE, SCALE);
+    g.fillStyle = '#fff';
+    g.fillRect(0, 0, W, H);
+    const rect = (x, y, w, h, fill) => {
+      if (fill) { g.fillStyle = fill; g.fillRect(x, y, w, h); }
+      g.strokeStyle = C.line; g.lineWidth = 0.75; g.strokeRect(x, y, w, h);
+    };
+    const text = (s, x, y, { align = 'center', size = 13, bold = false, color = C.text, maxW } = {}) => {
+      g.font = `${bold ? 700 : 400} ${size}px ${C.font}`;
+      g.fillStyle = color; g.textAlign = align; g.textBaseline = 'middle';
+      let str = String(s);
+      if (maxW && g.measureText(str).width > maxW) {
+        while (str.length > 1 && g.measureText(str + '…').width > maxW) str = str.slice(0, -1);
+        str += '…';
+      }
+      g.fillText(str, x, y);
+    };
+    return { cv, rect, text };
+  }
+
+  // Картинка стикеровки: только кто был на стикеровке в этом месяце. В клетке — часы смены:
+  // коричневая — на стикеровке (два числа: сверху стикеровка, снизу станки), обычная — на станках.
+  // Справа — итого часов на стикеровке и на станках.
+  function stickerPng(ym, caption) {
+    const days = Dates.monthDays(ym);
+    const map = Tabel.marksMap();
+    const stickers = Tabel.stickerMap();
+    const people = DB.data.people.filter((p) => days.some((d) => Tabel.split(p.id, d, map, stickers).on));
+    const types = days.map((d) => Sched.type(d));
+    const n = days.length;
+    const nameW = 300, totW = 74, legendH = 30;
+    const tableW = C.numW + nameW + n * C.dayW + totW * 2;
+    const W = C.pad * 2 + tableW;
+    const H = C.pad * 2 + C.titleH + C.hdrH * 3 + Math.max(people.length, 1) * C.rowH + legendH;
+    const { cv, rect, text } = surface(W, H);
+    const ST = '#7A4B33', ST_BG = '#F3E4D6';
+
+    const x0 = C.pad;
+    let y = C.pad;
+    text(`${DB.data.settings.shiftName} · стикеровка`, x0, y + C.titleH / 2 - 4, { align: 'left', size: 22, bold: true });
+    text(Dates.MONTHS[Number(ym.slice(5)) - 1], x0 + C.numW + nameW + (n * C.dayW) / 2, y + C.titleH / 2 - 4, { size: 22, bold: true });
+    text(caption, x0 + tableW, y + C.titleH / 2 - 4, { align: 'right', size: 12, color: C.muted });
+    y += C.titleH;
+
+    const dx = (i) => x0 + C.numW + nameW + i * C.dayW;
+    rect(x0, y, C.numW + nameW, C.hdrH * 2);
+    rect(x0, y + C.hdrH * 2, C.numW + nameW, C.hdrH);
+    text('Часы на стикеровке и на станках', x0 + 8, y + C.hdrH * 2.5, { align: 'left', size: 12 });
+    days.forEach((d, i) => {
+      rect(dx(i), y, C.dayW, C.hdrH);
+      text(Dates.WD[Dates.wd(d)], dx(i) + C.dayW / 2, y + C.hdrH / 2, { size: 11 });
+      rect(dx(i), y + C.hdrH, C.dayW, C.hdrH);
+      text(i + 1, dx(i) + C.dayW / 2, y + C.hdrH * 1.5, { size: 12, bold: true });
+      rect(dx(i), y + C.hdrH * 2, C.dayW, C.hdrH, fillOf(types[i]));
+      if (types[i] !== 'В') text(types[i], dx(i) + C.dayW / 2, y + C.hdrH * 2.5, { size: 12 });
+    });
+    const tx = dx(n);
+    [['Стикеровка', ST_BG], ['Станки', null]].forEach(([label, fill], k) => {
+      rect(tx + k * totW, y, totW, C.hdrH * 3, fill);
+      text(label, tx + k * totW + totW / 2, y + C.hdrH * 1.5, { size: 12, bold: true, color: k ? C.text : ST });
+    });
+    y += C.hdrH * 3;
+
+    people.forEach((p, k) => {
+      rect(x0, y, C.numW, C.rowH);
+      text(k + 1, x0 + C.numW / 2, y + C.rowH / 2, { size: 12 });
+      rect(x0 + C.numW, y, nameW, C.rowH);
+      text(Tabel.label(p), x0 + C.numW + 6, y + C.rowH / 2, { align: 'left', size: 12, maxW: nameW - 12 });
+      days.forEach((d, i) => {
+        const c = Tabel.split(p.id, d, map, stickers);
+        const cx = dx(i) + C.dayW / 2;
+        if (c.on && c.st && c.mach) {
+          rect(dx(i), y, C.dayW, C.rowH, ST_BG);
+          text(num(c.st), cx, y + 9, { size: 11, bold: true, color: ST });
+          text(num(c.mach), cx, y + C.rowH - 8, { size: 10 });
+        } else if (c.on) {
+          rect(dx(i), y, C.dayW, C.rowH, ST_BG);
+          text(c.st ? num(c.st) : 'С', cx, y + C.rowH / 2, { size: 13, bold: true, color: ST });
+        } else {
+          rect(dx(i), y, C.dayW, C.rowH, fillOf(types[i]));
+          if (c.v !== '') text(num(c.v), cx, y + C.rowH / 2, { size: 13 });
+        }
+      });
+      const t = Tabel.splitTotal(p.id, ym, map, stickers);
+      rect(tx, y, totW, C.rowH, ST_BG);
+      text(num(t.st), tx + totW / 2, y + C.rowH / 2, { size: 13, bold: true, color: ST });
+      rect(tx + totW, y, totW, C.rowH);
+      text(num(t.mach), tx + totW * 1.5, y + C.rowH / 2, { size: 13, bold: true });
+      y += C.rowH;
+    });
+    if (!people.length) {
+      text('В этом месяце на стикеровке никого не было', x0 + tableW / 2, y + C.rowH / 2, { size: 13, color: C.muted });
+      y += C.rowH;
+    }
+
+    rect(x0, y + 10, 18, 14, ST_BG);
+    text('— стикеровка; в клетке из двух чисел: сверху часы на стикеровке, снизу — на станках', x0 + 26, y + 17, { align: 'left', size: 12, color: C.muted });
+    return new Promise((resolve) => cv.toBlob(resolve, 'image/png'));
+  }
 
   // Картинка табеля в том же виде, что и Excel. Возвращает Blob PNG.
   function png(ym, caption) {
@@ -27,30 +135,7 @@ const Snapshot = (() => {
     const tableH = C.hdrH * 3 + bodyRows * C.rowH;
     const notesH = notes.length ? 12 + C.noteH * (notes.length + 1) : 0;
     const H = C.pad * 2 + C.titleH + tableH + notesH;
-
-    const cv = document.createElement('canvas');
-    cv.width = W * SCALE;
-    cv.height = H * SCALE;
-    const g = cv.getContext('2d');
-    g.scale(SCALE, SCALE);
-    g.fillStyle = '#fff';
-    g.fillRect(0, 0, W, H);
-
-    const rect = (x, y, w, h, fill) => {
-      if (fill) { g.fillStyle = fill; g.fillRect(x, y, w, h); }
-      g.strokeStyle = C.line; g.lineWidth = 0.75; g.strokeRect(x, y, w, h);
-    };
-    const text = (s, x, y, { align = 'center', size = 13, bold = false, color = C.text, maxW } = {}) => {
-      g.font = `${bold ? 700 : 400} ${size}px ${C.font}`;
-      g.fillStyle = color; g.textAlign = align; g.textBaseline = 'middle';
-      let str = String(s);
-      if (maxW && g.measureText(str).width > maxW) {
-        while (str.length > 1 && g.measureText(str + '…').width > maxW) str = str.slice(0, -1);
-        str += '…';
-      }
-      g.fillText(str, x, y);
-    };
-    const fillOf = (t) => (t === 'Д' ? C.day : t === 'Н' ? C.night : null);
+    const { cv, rect, text } = surface(W, H);
 
     // Заголовок
     const x0 = C.pad;
@@ -105,7 +190,7 @@ const Snapshot = (() => {
     return new Promise((resolve) => cv.toBlob(resolve, 'image/png'));
   }
 
-  return { png };
+  return { png, stickerPng };
 })();
 
 const Reports = (() => {
@@ -180,6 +265,26 @@ const Reports = (() => {
     const today = Dates.today();
     const head = `${DB.data.settings.shiftName} — табель за ${Dates.monthTitle(ym).toLowerCase()}`;
     return Dates.ym(today) === ym && today < Dates.monthDays(ym).at(-1) ? `${head}, с 01 по ${Dates.dm(today)}` : head;
+  }
+
+  // ---------- Стикеровка ----------
+  // Только картинка и только вручную («Табель» → «Стикеровка»): в группу и во второй чат, если он выбран. На почту — нет.
+  const stickerCaption = (ym) => periodCaption(ym).replace(' — табель за ', ' — стикеровка за ');
+  async function stickerFile(ym) {
+    const png = await Tabel.asFact(() => Snapshot.stickerPng(ym, `по состоянию на ${nowDm()}`)); // по факту
+    return new File([png], `Стикеровка ${Dates.monthTitle(ym)}.png`, { type: 'image/png' });
+  }
+  async function sendSticker(ym) {
+    const f = await stickerFile(ym);
+    await Telegram.sendDoc(f, stickerCaption(ym));
+    if (Telegram.fullReady()) await Telegram.sendDoc(f, stickerCaption(ym), 'fullChatId');
+  }
+  async function shareSticker(ym) {
+    const f = await stickerFile(ym);
+    if (navigator.canShare?.({ files: [f] })) {
+      try { await navigator.share({ files: [f], title: stickerCaption(ym) }); }
+      catch (e) { if (e.name !== 'AbortError') throw e; }
+    } else downloadBlob(f, f.name);
   }
 
   // ---------- Сообщение под табелем ----------
@@ -264,5 +369,5 @@ const Reports = (() => {
   window.addEventListener('online', () => tick());
   document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
 
-  return { active, tick, share, sendTelegram, banner, summary, periodCaption };
+  return { active, tick, share, sendTelegram, banner, summary, periodCaption, sendSticker, shareSticker };
 })();
