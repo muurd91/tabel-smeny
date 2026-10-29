@@ -1,0 +1,17 @@
+/* Страница работников смены: поверх общих стилей приложения (../css/style.css) */
+body.work { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+.wtop { background: var(--brand); color: var(--on-brand); padding: calc(14px + env(safe-area-inset-top)) 16px 16px; border-radius: 0 0 var(--r-l) var(--r-l); }
+.wtop__title { font-size: 20px; font-weight: 700; }
+.wtop__shift { color: var(--on-brand-muted); margin-top: 2px; min-height: 1.4em; }
+.wmain { padding: 16px; max-width: 520px; margin: 0 auto; }
+.wmain .card { margin-bottom: 14px; }
+.wlist { list-style: none; margin: 8px 0 0; padding: 0; }
+.wlist li { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.wlist li:last-child { border-bottom: 0; }
+.wlist__main { flex: 1; min-width: 0; }
+.wlist__qty { font-weight: 700; font-variant-numeric: tabular-nums; }
+.wsum { display: flex; justify-content: space-between; padding: 4px 0; }
+.wsum b { font-variant-numeric: tabular-nums; }
+.werr { color: var(--err); margin: 8px 0 0; min-height: 1.2em; }
+.wbar { display: flex; justify-content: flex-end; margin-top: 8px; }
+.wlink { background: none; border: 0; color: var(--muted); text-decoration: underline; padding: 8px; }
