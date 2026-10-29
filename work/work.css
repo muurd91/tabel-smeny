@@ -30,19 +30,12 @@ body.work { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
 .wunit .seg__btn { white-space: nowrap; min-height: 40px; } /* 40 + 2×4 отступа = 48px, как у полей ввода */
 .wtimerow { align-items: flex-start; }
 
-/* ---------- Ползунок «коробок | штук»: жидкое стекло ---------- */
-.wunit { position: relative; isolation: isolate; background: var(--surface-2); box-shadow: inset 0 1px 3px rgb(30 43 37 / .14); }
+/* ---------- Переключатели «коробок | штук» и «отверстия есть | нет»: плоская капля, перетекает при переключении ---------- */
+.wunit { position: relative; isolation: isolate; }
 .wunit .seg__btn { position: relative; z-index: 1; background: none; box-shadow: none; transition: color .3s ease; }
 .wunit .seg__btn.is-on { background: none; box-shadow: none; color: var(--on-brand); }
 .wthumb {
   position: absolute; top: 4px; bottom: 4px; left: 4px; width: 0; z-index: 0; pointer-events: none; border-radius: 999px;
-  background: linear-gradient(180deg, rgb(78 135 114 / .95), rgb(38 80 66 / .96));
-  -webkit-backdrop-filter: blur(6px) saturate(1.6); backdrop-filter: blur(6px) saturate(1.6);
-  box-shadow: 0 5px 12px rgb(30 60 48 / .35), inset 0 1.5px 1px rgb(255 255 255 / .6), inset 0 -2px 5px rgb(0 0 0 / .2), inset 0 0 0 1px rgb(255 255 255 / .12);
+  background: var(--brand); box-shadow: 0 2px 6px var(--shadow);
   will-change: left, width, transform;
-}
-/* блик сверху — как на стеклянной линзе */
-.wthumb::after {
-  content: ""; position: absolute; inset: 2px 10% 52% 10%; border-radius: 999px;
-  background: linear-gradient(180deg, rgb(255 255 255 / .5), rgb(255 255 255 / 0));
 }
