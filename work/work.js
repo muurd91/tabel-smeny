@@ -327,6 +327,34 @@
   });
   document.addEventListener('close', (e) => { if (e.target.id === 'sheet') draft = null; }, true);
 
+  // ---------- Версия и «Доступно обновление» ----------
+  // Номер запущенной версии — внизу страницы. Пока страница открыта, раз в 10 минут и при возврате в приложение
+  // смотрим, не вышла ли на сайте версия новее; если да — окно с кнопкой «Обновить». Работает и без SW: просто сравнивает номера.
+  const RUNNING = document.querySelector('meta[name="app-version"]')?.content || '';
+  $('#ver').textContent = RUNNING ? `Версия ${RUNNING}` : '';
+  let updateShown = false;
+  let lastCheck = 0;
+  async function checkUpdate() {
+    if (!RUNNING || updateShown || Date.now() - lastCheck < 60e3) return;
+    lastCheck = Date.now();
+    try {
+      const res = await fetch(`index.html?check=${Date.now()}`, { cache: 'no-store' });
+      const v = ((await res.text()).match(/name="app-version" content="([^"]+)"/) || [])[1];
+      if (!v || v === RUNNING) return;
+      updateShown = true;
+      $('#update-text').textContent = `Вышла новая версия приложения (${v}), у вас ${RUNNING}. Нажмите «Обновить», чтобы продолжить работу с новой версией.`;
+      if (!$('#update').open) $('#update').showModal();
+    } catch { /* нет сети — проверим позже */ }
+  }
+  $('#update-now').addEventListener('click', async () => {
+    try { for (const r of await navigator.serviceWorker.getRegistrations()) await r.update(); } catch { /* обновим и так */ }
+    location.reload();
+  });
+  $('#update-later').addEventListener('click', () => { $('#update').close(); setTimeout(() => { updateShown = false; checkUpdate(); }, 15 * 60e3); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
+  setInterval(checkUpdate, 10 * 60e3);
+  setTimeout(checkUpdate, 5000);
+
   // ---------- Запуск ----------
   // Смена сменилась (7:30 или 19:30) — переключить список
   setInterval(() => {

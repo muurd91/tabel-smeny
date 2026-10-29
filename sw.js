@@ -2,11 +2,11 @@
 // Кэшируются файлы приложения и библиотеки Firebase (gstatic.com); данные — в localStorage и Firestore.
 // При любом изменении файлов приложения — tools/bump.sh: он поднимает VERSION здесь и ?v= в index.html
 // (иначе телефон будет держать старую копию, а новая страница может получить старые скрипты).
-const VERSION = '54';
+const VERSION = '55';
 const CACHE = `ts-shell-v${VERSION}`;
 
 // Скрипты и стили — с ?v=VERSION, ровно как их запрашивает index.html.
-const VERSIONED = ['css/style.css', 'css/splash.css', 'js/splash.js', 'js/config.js', 'js/data.js', 'js/cloud.js', 'js/xlsx.js', 'js/telegram.js', 'js/report.js', 'js/production.js', 'js/app.js'];
+const VERSIONED = ['css/style.css', 'css/splash.css', 'js/splash.js', 'js/config.js', 'js/data.js', 'js/cloud.js', 'js/xlsx.js', 'js/telegram.js', 'js/report.js', 'js/production.js', 'js/app.js', 'js/update.js'];
 
 const SHELL = [
   './',
@@ -56,6 +56,7 @@ self.addEventListener('fetch', (e) => {
     return;
   }
   if (url.origin !== location.origin) return;
+  if (url.searchParams.has('check')) return; // проверка новой версии (js/update.js): всегда из сети, в кэш не кладём
 
   // Страница — «сначала сеть»: обновления приходят сразу, без сети открывается сохранённая копия.
   // В кэш кладём только страницу своей версии: если сайт уже обновился, а этот service worker старый,

@@ -17,6 +17,7 @@ body.work { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
 .wm__btn { flex: none; min-height: 44px; padding: 0 14px; }
 .wm__other { display: block; margin: 10px auto 0; }
 .sheet .seg { margin: 0; }
+.wver { text-align: center; color: var(--muted); font-size: 13px; margin: 4px 0 20px; }
 .wsum { display: flex; justify-content: space-between; padding: 4px 0; }
 .wsum b { font-variant-numeric: tabular-nums; }
 .werr { color: var(--err); margin: 8px 0 0; min-height: 1.2em; }

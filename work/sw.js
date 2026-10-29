@@ -1,7 +1,9 @@
 // Офлайн-оболочка страницы работников (/work/): страница — сначала сеть, остальное — из кэша с обновлением в фоне.
 // Свой scope (work/) — основной service worker приложения эту страницу не трогает.
-const CACHE = 'tw-shell-v5';
-const SHELL = ['./', 'index.html', 'work.js', 'work.css', 'manifest.webmanifest', '../css/style.css', '../js/config.js', '../icons/icon-192.png'];
+// Версия — та же, что у приложения: её поднимает tools/bump.sh вместе с ?v= в index.html и номером на странице.
+const VERSION = '55';
+const CACHE = `tw-shell-v${VERSION}`;
+const SHELL = ['./', 'index.html', 'manifest.webmanifest', `work.js?v=${VERSION}`, `work.css?v=${VERSION}`, `../css/style.css?v=${VERSION}`, `../js/config.js?v=${VERSION}`, '../icons/icon-192.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
@@ -18,8 +20,13 @@ self.addEventListener('fetch', (e) => {
     return;
   }
   if (url.origin !== location.origin) return;
+  if (url.searchParams.has('check')) return; // проверка новой версии (work.js): всегда из сети, в кэш не кладём
   if (req.mode === 'navigate') {
-    e.respondWith(fetch(req.url, { cache: 'no-cache' }).then((res) => { const copy = res.clone(); if (res.ok) caches.open(CACHE).then((c) => c.put('index.html', copy)); return res; }).catch(() => caches.match('index.html')));
+    // В кэш кладём только страницу своей версии: иначе новая страница со ссылками на ещё не скачанные скрипты офлайн не открылась бы
+    e.respondWith(fetch(req.url, { cache: 'no-cache' }).then((res) => {
+      if (res.ok) res.clone().text().then((html) => { if (html.includes(`name="app-version" content="${VERSION}"`)) caches.open(CACHE).then((c) => c.put('index.html', new Response(html, { headers: res.headers }))); });
+      return res;
+    }).catch(() => caches.match('index.html')));
     return;
   }
   e.respondWith(caches.match(req).then((hit) => {
