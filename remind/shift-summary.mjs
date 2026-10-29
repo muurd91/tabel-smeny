@@ -91,7 +91,7 @@ else {
   lines.push('');
   for (const [k, q] of sums) { const [name, u] = k.split('|'); lines.push(`• ${name} — ${num(q)} ${u}`); }
   lines.push('', `Всего: ${totalText(entries)}`, '', 'По времени отвоза:');
-  for (const e of entries) lines.push(`${hhmm(e.at)} — ${nameOf(e)} — ${num(e.qty)} ${unitOf(e)}`);
+  for (const e of entries) lines.push(`${hhmm(e.at)} — ${e.machine ? `${e.machine} · ` : ''}${nameOf(e)} — ${num(e.qty)} ${unitOf(e)}`);
 }
 let text = (MODE === 'test' ? '🧪 Проверка итога смены. ' : '') + lines.join('\n');
 if (text.length > 4000) text = `${text.slice(0, 3990)}\n…`;

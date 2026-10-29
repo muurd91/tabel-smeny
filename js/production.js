@@ -25,6 +25,8 @@ const Production = (() => {
   let entries = [];
   let products = [];
   let colors = [];
+  const DEFAULT_MACHINES = ['Ф1', 'Ф2', 'Ф3', 'Ф4', 'Ф5', 'Ф6', 'К1', 'К2', 'К3'];
+  let machines = []; // { name, on, product } — владелец отмечает, какие станки работают и что на них выпускают
   let unsubs = [];
   let active = false;
 
@@ -56,6 +58,7 @@ const Production = (() => {
       const d = snap.exists() ? snap.data() : {};
       products = Array.isArray(d.products) ? d.products.map(String) : [];
       colors = Array.isArray(d.colors) ? d.colors.map(String) : [];
+      machines = Array.isArray(d.machines) ? d.machines.filter((m) => m && m.name).map((m) => ({ name: String(m.name), on: !!m.on, product: String(m.product || '') })) : [];
       refresh();
     }, () => {}));
     return true;
@@ -64,8 +67,45 @@ const Production = (() => {
   async function saveLists(list, colorList) {
     const api = Cloud.api();
     if (!api) throw new Error('Войдите в облако');
-    await api.fs.setDoc(api.fs.doc(api.db, 'settings', 'production'), { products: list, colors: colorList });
+    // merge: в этом же документе лежит список станков — списки его не трогают
+    await api.fs.setDoc(api.fs.doc(api.db, 'settings', 'production'), { products: list, colors: colorList }, { merge: true });
   }
+
+  // ---------- Станки: работает / не работает и что выпускает ----------
+  // Работники видят на своей странице только работающие станки, с кнопкой «Сдать продукцию»; вид продукции берётся от станка.
+  const machineRows = () => (machines.length ? machines : DEFAULT_MACHINES.map((name) => ({ name, on: false, product: '' })));
+  let machineTimer = null;
+  function setMachine(name, patch) {
+    const rows = machineRows().map((m) => (m.name === name ? { ...m, ...patch } : m));
+    machines = rows; // сразу на экране; в облако — через полсекунды (несколько правок подряд — одной записью)
+    clearTimeout(machineTimer);
+    machineTimer = setTimeout(() => {
+      const api = Cloud.api();
+      if (api) api.fs.setDoc(api.fs.doc(api.db, 'settings', 'production'), { machines: rows }, { merge: true }).catch(() => toast('Станки не сохранились — проверьте связь'));
+    }, 500);
+  }
+
+  function machinesHtml() {
+    const opts = (cur) => {
+      const list = products.includes(cur) || !cur ? products : [cur, ...products];
+      return `<option value="">— вид продукции —</option>${list.map((p) => `<option value="${esc(p)}"${p === cur ? ' selected' : ''}>${esc(p)}</option>`).join('')}`;
+    };
+    return `<div class="card mach"><h2>Станки</h2>
+      <p class="small muted">Отметьте, какие станки работают и что на них выпускают: работники увидят только их, с кнопкой «Сдать продукцию».</p>
+      ${machineRows().map((m) => `<div class="mach__row${m.on ? ' is-on' : ''}">
+        <b class="mach__name">${esc(m.name)}</b>
+        <label class="mach__sw"><input type="checkbox" class="mach__on" data-m="${esc(m.name)}"${m.on ? ' checked' : ''}><span>${m.on ? 'работает' : 'стоит'}</span></label>
+        <select class="input mach__prod" data-m="${esc(m.name)}" aria-label="Вид продукции на станке ${esc(m.name)}">${opts(m.product)}</select></div>`).join('')}
+    </div>`;
+  }
+
+  document.addEventListener('change', (e) => {
+    const m = e.target.dataset?.m;
+    if (!m || !e.target.closest('#view-shift')) return;
+    if (e.target.classList.contains('mach__on')) setMachine(m, { on: e.target.checked });
+    else if (e.target.classList.contains('mach__prod')) setMachine(m, { product: e.target.value });
+    refresh();
+  });
 
   async function remove(id) {
     const api = Cloud.api();
@@ -85,8 +125,8 @@ const Production = (() => {
       : `<div class="prod__sums">${[...sums].map(([k, q]) => { const [p, u] = k.split('|'); return `<div class="prod__sum"><span>${esc(p)}</span><b>${num(q)} ${u}</b></div>`; }).join('')}
           <div class="prod__sum prod__sum--total"><span>Всего</span><b>${totalText(entries)}</b></div></div>
         <details class="prod__more"><summary>Записи (${entries.length})</summary>
-          <ul class="prod__list">${entries.map((e) => `<li><span class="prod__time">${hhmm(new Date(e.at))}</span><span class="grow">${esc(nameOf(e))}</span><b>${num(e.qty)} ${unitOf(e)}</b><button class="btn btn--icon" data-prod-del="${esc(e.id)}" type="button" aria-label="Удалить запись">${ICON.x}</button></li>`).join('')}</ul></details>`;
-    return `<div class="card prod"><h2>Сдано за смену</h2><p class="small muted">${esc(head)} · вносят на странице для работников</p>${body}</div>`;
+          <ul class="prod__list">${entries.map((e) => `<li><span class="prod__time">${hhmm(new Date(e.at))}</span><span class="grow">${e.machine ? `${esc(e.machine)} · ` : ''}${esc(nameOf(e))}</span><b>${num(e.qty)} ${unitOf(e)}</b><button class="btn btn--icon" data-prod-del="${esc(e.id)}" type="button" aria-label="Удалить запись">${ICON.x}</button></li>`).join('')}</ul></details>`;
+    return `${machinesHtml()}<div class="card prod"><h2>Сдано за смену</h2><p class="small muted">${esc(head)} · вносят на странице для работников</p>${body}</div>`;
   }
 
   // Карточка в «Настройках»: список видов продукции
