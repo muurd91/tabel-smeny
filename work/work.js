@@ -82,7 +82,7 @@
   const creds = { name: '', pass: '' }; // логин и пароль переживают перерисовку (после ошибки не стираются)
   const unitOf = (e) => (e.unit === 'штук' ? 'штук' : 'коробок'); // записи без единицы — коробки
   const totalText = (list) => ['коробок', 'штук'].map((u) => [u, list.filter((e) => unitOf(e) === u).reduce((s, e) => s + e.qty, 0)]).filter(([, q]) => q).map(([u, q]) => `${num(q)} ${u}`).join(', ') || '0';
-  const nameOf = (e) => (e.color ? `${e.product}, ${e.color}` : e.product);
+  const nameOf = (e) => [e.product, e.color, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', ');
   let error = '';
   let loggingIn = false; // идёт вход
   let draft = null;      // открытое окно «Сдать продукцию»
@@ -120,11 +120,14 @@
     const m = machines.find((x) => x.name === machineName);
     // Цвет — как в прошлый раз у этого станка (на этой смене, иначе последний на этом телефоне)
     const last = [...entries].reverse().find((e) => e.machine === machineName && e.color);
-    const prev = last?.color || lsGet(`work.color.${machineName}`);
-    draft = { machine: machineName, fixed: !!m?.product, product: m?.product || '', pick: '', other: '', qty: '', unit: lastUnit, color: '', colorOther: '', time: '', touched: false, err: '', busy: false };
+    const prev = last?.color || lsGet(`work.color.${machineName}`) || 'чёрный'; // по умолчанию чёрный
+    const lastRun = [...entries].reverse().find((e) => e.machine === machineName);
+    draft = { machine: machineName, fixed: !!m?.product, product: m?.product || '', pick: '', other: '', qty: '', unit: lastUnit, color: '', colorOther: '', time: '', touched: false, err: '', busy: false, noHoles: !!lastRun?.noHoles };
     if (prev) {
-      if (colors.includes(prev)) draft.color = prev;
-      else if (colors.length) { draft.color = '__other'; draft.colorOther = prev; }
+      // «чёрный» и «черный» — одно и то же
+      const same = colors.find((c) => c.toLowerCase().replace(/ё/g, 'е') === prev.toLowerCase().replace(/ё/g, 'е'));
+      if (same) draft.color = same;
+      else if (colors.length) { if (prev !== 'чёрный') { draft.color = '__other'; draft.colorOther = prev; } } // чёрного нет в списке — без цвета, не навязываем
       else draft.colorOther = prev;
     }
     renderSheet();
@@ -157,6 +160,7 @@
           <div class="seg wunit" role="tablist" aria-label="Единица"><span class="wthumb" aria-hidden="true"></span>${['коробок', 'штук'].map((u) => `<button class="seg__btn${d.unit === u ? ' is-on' : ''}" data-unit="${u}" role="tab" aria-selected="${d.unit === u}" type="button">${u}</button>`).join('')}</div>
         </div></div>
       ${colorBlock}
+      <label class="check mt-12"><input type="checkbox" id="s-noholes"${d.noHoles ? ' checked' : ''}><span>Без отверстий</span></label>
       <label class="field"><span class="field__label">Время отвоза</span>
         <input class="input input--short" id="s-time" type="time" value="${esc(d.touched ? d.time : hhmm(new Date()))}"></label>
       <p class="werr" id="s-err">${esc(d.err)}</p>
@@ -182,7 +186,7 @@
       const { fs, db } = fb;
       await fs.addDoc(fs.collection(db, 'shipments'), {
         shift: shift.id, qty, unit: d.unit, product, ...(color ? { color } : {}), ...(d.machine ? { machine: d.machine } : {}),
-        at: at.toISOString(), by: (user.email || '').split('@')[0], createdAt: fs.serverTimestamp(),
+        ...(d.noHoles ? { noHoles: true } : {}), at: at.toISOString(), by: (user.email || '').split('@')[0], createdAt: fs.serverTimestamp(),
       });
       lastUnit = d.unit;
       if (d.machine) lsSet(`work.color.${d.machine}`, color);
@@ -284,7 +288,8 @@
     else if (id === 's-time') { draft.time = e.target.value; draft.touched = true; }
   });
   document.addEventListener('change', (e) => {
-    if (draft && e.target.id === 's-pick') { draft.pick = e.target.value; renderSheet(); $('#s-qty')?.focus(); }
+    if (draft && e.target.id === 's-noholes') draft.noHoles = e.target.checked;
+    else if (draft && e.target.id === 's-pick') { draft.pick = e.target.value; renderSheet(); $('#s-qty')?.focus(); }
   });
   document.addEventListener('click', async (e) => {
     const t = e.target.closest('button');
@@ -296,6 +301,7 @@
         draft.color = draft.color === t.dataset.color ? '' : t.dataset.color;
         if (draft.color !== '__other') draft.colorOther = '';
         renderSheet();
+        if (draft.color === '__other') $('#s-color-other')?.focus(); // «Другой» — цвет пишут от руки
       }
     } else if (t.dataset.mach !== undefined) openSheet(t.dataset.mach);
     else if (t.id === 'f-out') { await fb.auth.signOut(fb.au); }

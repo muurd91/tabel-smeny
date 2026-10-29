@@ -80,7 +80,7 @@ const hhmm = (iso) => { const t = new Date(new Date(iso).getTime() + Number(TZ_O
 const num = (n) => String(n).replace('.', ',');
 const unitOf = (e) => (e.unit === 'штук' ? 'штук' : 'коробок'); // записи без единицы — коробки
 const totalText = (list) => ['коробок', 'штук'].map((u) => [u, list.filter((e) => unitOf(e) === u).reduce((s, e) => s + e.qty, 0)]).filter(([, q]) => q).map(([u, q]) => `${num(q)} ${u}`).join(', ') || '0';
-const nameOf = (e) => (e.color ? `${e.product}, ${e.color}` : e.product);
+const nameOf = (e) => [e.product, e.color, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', ');
 const title = `${night ? 'ночную' : 'дневную'} смену ${pad(day.getUTCDate())}.${pad(day.getUTCMonth() + 1)} (${night ? '19:30–7:30' : '7:30–19:30'})`;
 
 const lines = [`📦 ${shiftName} — сдано за ${title}`];

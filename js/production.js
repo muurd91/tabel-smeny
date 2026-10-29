@@ -117,7 +117,7 @@ const Production = (() => {
     if (!ensure()) return '';
     const s = shiftOf();
     const sums = new Map();
-    const nameOf = (e) => (e.color ? `${e.product}, ${e.color}` : e.product);
+    const nameOf = (e) => [e.product, e.color, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', ');
     for (const e of entries) { const k = `${nameOf(e)}|${unitOf(e)}`; sums.set(k, (sums.get(k) || 0) + e.qty); }
     const head = `${s.night ? 'Ночная' : 'Дневная'} смена · ${pad(s.day.getDate())}.${pad(s.day.getMonth() + 1)}`;
     const body = !entries.length
