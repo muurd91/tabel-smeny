@@ -89,8 +89,8 @@
   const nameOf = (e) => [e.product, e.color, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', ');
   // Когда запись добавлена: createdAt = null — ещё не дошла до сервера (самая свежая); у старых записей поля нет — берём время отвоза
   const addedAt = (e) => (e.createdAt?.toMillis ? e.createdAt.toMillis() : 'createdAt' in e ? Infinity : Date.parse(e.at));
-  // Строка списка: станок — время — вид продукции — количество — цвет
-  const rowText = (e) => `<b>${e.machine ? esc(e.machine) : '—'}</b><span class="wlist__sep">·</span>${hhmm(new Date(e.at))}<span class="wlist__sep">·</span>${esc([e.product, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', '))}<span class="wlist__sep">·</span><b>${num(e.qty)} ${unitOf(e)}</b>${e.color ? `<span class="wlist__sep">·</span>${esc(e.color)}` : ''}`;
+  // Запись списка тремя столбцами: станок над временем, вид продукции над цветом, количество по центру
+  const rowText = (e) => `<div class="rec__col"><b>${e.machine ? esc(e.machine) : '—'}</b><span>${hhmm(new Date(e.at))}</span></div><div class="rec__col rec__col--p"><span>${esc(e.product || '—')}</span><span class="rec__sub">${esc([e.color, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', ') || ' ')}</span></div><b class="rec__q">${num(e.qty)} ${unitOf(e)}</b>`;
   let error = '';
   let loggingIn = false; // идёт вход
   let draft = null;      // открытое окно «Сдать продукцию»
@@ -321,8 +321,8 @@
     if (!entries.length) return '<p class="muted">Пока ничего не записано.</p>';
     const sums = new Map();
     for (const e of entries) { const k = `${nameOf(e)}|${unitOf(e)}`; sums.set(k, (sums.get(k) || 0) + e.qty); }
-    return `<ul class="wlist">${entries.map((e) => `<li>
-        <span class="wlist__main">${rowText(e)}</span>
+    return `<ul class="wlist">${entries.map((e) => `<li class="rec">
+        ${rowText(e)}
         <button class="btn btn--icon" data-del="${esc(e.id)}" type="button" aria-label="Удалить запись">✕</button></li>`).join('')}</ul>
       <div class="mt-12">${[...sums].map(([k, q]) => { const [p, u] = k.split('|'); return `<div class="wsum"><span>${esc(p)}</span><b>${num(q)} ${u}</b></div>`; }).join('')}
         <div class="wsum"><span><b>Всего</b></span><b>${totalText(entries)}</b></div></div>`;

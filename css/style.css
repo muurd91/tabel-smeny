@@ -426,7 +426,6 @@ label.shiftbar__date { cursor: pointer; }
 .prod__list li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); }
 .prod__list li:last-child { border-bottom: 0; }
 .prod__time { color: var(--muted); font-variant-numeric: tabular-nums; }
-.prod__sep, .wlist__sep { color: var(--muted); margin: 0 5px; }
 
 /* ---------- Станки на «Смене»: работает / стоит и вид продукции ---------- */
 .mach__row { display: grid; grid-template-columns: 34px auto 1fr; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
@@ -437,3 +436,10 @@ label.shiftbar__date { cursor: pointer; }
 .mach__sw input { width: 22px; height: 22px; }
 .mach__prod { min-width: 0; padding-top: 8px; padding-bottom: 8px; }
 .mach__row:not(.is-on) .mach__prod { opacity: .55; }
+
+/* ---------- Запись сданной продукции: три столбца (станок/время, вид/цвет, количество по центру) ---------- */
+.rec, .wlist li.rec, .prod__list li.rec { display: grid; grid-template-columns: 3.6em minmax(0, 1fr) auto auto; align-items: center; column-gap: 10px; }
+.rec__col { display: flex; flex-direction: column; min-width: 0; line-height: 1.35; }
+.rec__col > span { overflow-wrap: anywhere; }
+.rec__col:first-child > span, .rec__sub { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.rec__q { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
