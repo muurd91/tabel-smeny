@@ -75,7 +75,9 @@
   let colors = [];
   let unsubs = [];
   const creds = { name: '', pass: '' }; // логин и пароль переживают перерисовку (после ошибки не стираются)
-  const form = { qty: '', product: '', other: '', color: '', colorOther: '', time: '', timeTouched: false };
+  const unitOf = (e) => (e.unit === 'штук' ? 'штук' : 'коробок'); // записи без единицы — коробки
+  const totalText = (list) => ['коробок', 'штук'].map((u) => [u, list.filter((e) => unitOf(e) === u).reduce((s, e) => s + e.qty, 0)]).filter(([, q]) => q).map(([u, q]) => `${num(q)} ${u}`).join(', ') || '0';
+  const form = { qty: '', unit: 'коробок', product: '', other: '', color: '', colorOther: '', time: '', timeTouched: false };
   let error = '';
   let busy = false;      // идёт запись
   let loggingIn = false; // идёт вход
@@ -107,7 +109,7 @@
   async function addEntry() {
     const qty = Number(String(form.qty).replace(',', '.'));
     const product = (products.length && form.product !== '__other' ? form.product : form.other).trim();
-    if (!(qty > 0)) { error = 'Укажите, сколько коробок.'; return render(); }
+    if (!(qty > 0)) { error = 'Укажите количество.'; return render(); }
     if (!product) { error = 'Укажите вид продукции.'; return render(); }
     const color = (colors.length && form.color !== '__other' ? form.color : form.colorOther).trim();
     const time = form.time || hhmm(new Date());
@@ -119,7 +121,7 @@
     try {
       const { fs, db } = fb;
       await fs.addDoc(fs.collection(db, 'shipments'), {
-        shift: shift.id, qty, product, ...(color ? { color } : {}), at: at.toISOString(), by: (user.email || '').split('@')[0], createdAt: fs.serverTimestamp(),
+        shift: shift.id, qty, unit: form.unit, product, ...(color ? { color } : {}), at: at.toISOString(), by: (user.email || '').split('@')[0], createdAt: fs.serverTimestamp(),
       });
       Object.assign(form, { qty: '', colorOther: '', timeTouched: false, time: '' });
     } catch (e) { error = explain(e); }
@@ -163,8 +165,11 @@
     app.innerHTML = `
       <div class="card">
         <h2>Записать отвоз</h2>
-        <label class="field"><span class="field__label">Количество, коробок</span>
-          <input class="input" id="f-qty" type="text" inputmode="decimal" value="${esc(form.qty)}" autocomplete="off" placeholder="0"></label>
+        <div class="field"><span class="field__label">Количество</span>
+          <div class="row row--nowrap">
+            <input class="input wqty" id="f-qty" type="text" inputmode="decimal" value="${esc(form.qty)}" autocomplete="off" placeholder="0">
+            <div class="seg wunit" role="tablist" aria-label="Единица">${['коробок', 'штук'].map((u) => `<button class="seg__btn${form.unit === u ? ' is-on' : ''}" data-unit="${u}" role="tab" aria-selected="${form.unit === u}" type="button">${u}</button>`).join('')}</div>
+          </div></div>
         ${sel}
         ${colorField}
         <label class="field"><span class="field__label">Время отвоза</span>
@@ -180,14 +185,13 @@
     if (!entries.length) return '<p class="muted">Пока ничего не записано.</p>';
     const sums = new Map();
     const nameOf = (e) => (e.color ? `${e.product}, ${e.color}` : e.product);
-    for (const e of entries) sums.set(nameOf(e), (sums.get(nameOf(e)) || 0) + e.qty);
-    const total = entries.reduce((s, e) => s + e.qty, 0);
+    for (const e of entries) { const k = `${nameOf(e)}|${unitOf(e)}`; sums.set(k, (sums.get(k) || 0) + e.qty); }
     return `<ul class="wlist">${entries.map((e) => `<li>
-        <span class="wlist__qty">${num(e.qty)}</span>
+        <span class="wlist__qty">${num(e.qty)} ${unitOf(e)}</span>
         <span class="wlist__main">${esc(nameOf(e))}<br><span class="small muted">отвезли в ${hhmm(new Date(e.at))}</span></span>
         <button class="btn btn--icon" data-del="${esc(e.id)}" type="button" aria-label="Удалить запись">✕</button></li>`).join('')}</ul>
-      <div class="mt-12">${[...sums].map(([p, q]) => `<div class="wsum"><span>${esc(p)}</span><b>${num(q)}</b></div>`).join('')}
-        <div class="wsum"><span><b>Всего</b></span><b>${num(total)}</b></div></div>`;
+      <div class="mt-12">${[...sums].map(([k, q]) => { const [p, u] = k.split('|'); return `<div class="wsum"><span>${esc(p)}</span><b>${num(q)} ${u}</b></div>`; }).join('')}
+        <div class="wsum"><span><b>Всего</b></span><b>${totalText(entries)}</b></div></div>`;
   }
 
   function renderLogin(app) {
@@ -218,6 +222,7 @@
     const t = e.target.closest('button');
     if (!t) return;
     if (t.id === 'f-add') addEntry();
+    else if (t.dataset.unit) { form.unit = t.dataset.unit; render(); }
     else if (t.id === 'f-out') { await fb.auth.signOut(fb.au); }
     else if (t.dataset.del) removeEntry(t.dataset.del);
     else if (t.id === 'l-go') {

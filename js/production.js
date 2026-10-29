@@ -19,6 +19,8 @@ const Production = (() => {
     return { id: `${isoDate(day)}${night ? 'Н' : 'Д'}`, night, day };
   }
 
+  const unitOf = (e) => (e.unit === 'штук' ? 'штук' : 'коробок'); // записи без единицы — коробки
+  const totalText = (list) => ['коробок', 'штук'].map((u) => [u, list.filter((e) => unitOf(e) === u).reduce((s, e) => s + e.qty, 0)]).filter(([, q]) => q).map(([u, q]) => `${num(q)} ${u}`).join(', ') || '0';
   let shiftId = '';
   let entries = [];
   let products = [];
@@ -76,15 +78,14 @@ const Production = (() => {
     const s = shiftOf();
     const sums = new Map();
     const nameOf = (e) => (e.color ? `${e.product}, ${e.color}` : e.product);
-    for (const e of entries) sums.set(nameOf(e), (sums.get(nameOf(e)) || 0) + e.qty);
-    const total = entries.reduce((t, e) => t + e.qty, 0);
+    for (const e of entries) { const k = `${nameOf(e)}|${unitOf(e)}`; sums.set(k, (sums.get(k) || 0) + e.qty); }
     const head = `${s.night ? 'Ночная' : 'Дневная'} смена · ${pad(s.day.getDate())}.${pad(s.day.getMonth() + 1)}`;
     const body = !entries.length
       ? '<p class="small muted">Пока ничего не записано.</p>'
-      : `<div class="prod__sums">${[...sums].map(([p, q]) => `<div class="prod__sum"><span>${esc(p)}</span><b>${num(q)}</b></div>`).join('')}
-          <div class="prod__sum prod__sum--total"><span>Всего коробок</span><b>${num(total)}</b></div></div>
+      : `<div class="prod__sums">${[...sums].map(([k, q]) => { const [p, u] = k.split('|'); return `<div class="prod__sum"><span>${esc(p)}</span><b>${num(q)} ${u}</b></div>`; }).join('')}
+          <div class="prod__sum prod__sum--total"><span>Всего</span><b>${totalText(entries)}</b></div></div>
         <details class="prod__more"><summary>Записи (${entries.length})</summary>
-          <ul class="prod__list">${entries.map((e) => `<li><span class="prod__time">${hhmm(new Date(e.at))}</span><span class="grow">${esc(nameOf(e))}</span><b>${num(e.qty)}</b><button class="btn btn--icon" data-prod-del="${esc(e.id)}" type="button" aria-label="Удалить запись">${ICON.x}</button></li>`).join('')}</ul></details>`;
+          <ul class="prod__list">${entries.map((e) => `<li><span class="prod__time">${hhmm(new Date(e.at))}</span><span class="grow">${esc(nameOf(e))}</span><b>${num(e.qty)} ${unitOf(e)}</b><button class="btn btn--icon" data-prod-del="${esc(e.id)}" type="button" aria-label="Удалить запись">${ICON.x}</button></li>`).join('')}</ul></details>`;
     return `<div class="card prod"><h2>Сдано за смену</h2><p class="small muted">${esc(head)} · вносят на странице для работников</p>${body}</div>`;
   }
 

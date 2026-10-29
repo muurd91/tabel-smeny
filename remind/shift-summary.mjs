@@ -78,6 +78,8 @@ if (MODE !== 'test' && !mine && !entries.length) {
 }
 const hhmm = (iso) => { const t = new Date(new Date(iso).getTime() + Number(TZ_OFFSET) * 3600e3); return `${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}`; };
 const num = (n) => String(n).replace('.', ',');
+const unitOf = (e) => (e.unit === 'штук' ? 'штук' : 'коробок'); // записи без единицы — коробки
+const totalText = (list) => ['коробок', 'штук'].map((u) => [u, list.filter((e) => unitOf(e) === u).reduce((s, e) => s + e.qty, 0)]).filter(([, q]) => q).map(([u, q]) => `${num(q)} ${u}`).join(', ') || '0';
 const nameOf = (e) => (e.color ? `${e.product}, ${e.color}` : e.product);
 const title = `${night ? 'ночную' : 'дневную'} смену ${pad(day.getUTCDate())}.${pad(day.getUTCMonth() + 1)} (${night ? '19:30–7:30' : '7:30–19:30'})`;
 
@@ -85,11 +87,11 @@ const lines = [`📦 ${shiftName} — сдано за ${title}`];
 if (!entries.length) lines.push('', 'Записей нет — на странице для работников ничего не внесли.');
 else {
   const sums = new Map();
-  for (const e of entries) sums.set(nameOf(e), (sums.get(nameOf(e)) || 0) + e.qty);
+  for (const e of entries) { const k = `${nameOf(e)}|${unitOf(e)}`; sums.set(k, (sums.get(k) || 0) + e.qty); }
   lines.push('');
-  for (const [name, q] of sums) lines.push(`• ${name} — ${num(q)}`);
-  lines.push('', `Всего коробок: ${num(entries.reduce((s, e) => s + e.qty, 0))}`, '', 'По времени отвоза:');
-  for (const e of entries) lines.push(`${hhmm(e.at)} — ${nameOf(e)} — ${num(e.qty)}`);
+  for (const [k, q] of sums) { const [name, u] = k.split('|'); lines.push(`• ${name} — ${num(q)} ${u}`); }
+  lines.push('', `Всего: ${totalText(entries)}`, '', 'По времени отвоза:');
+  for (const e of entries) lines.push(`${hhmm(e.at)} — ${nameOf(e)} — ${num(e.qty)} ${unitOf(e)}`);
 }
 let text = (MODE === 'test' ? '🧪 Проверка итога смены. ' : '') + lines.join('\n');
 if (text.length > 4000) text = `${text.slice(0, 3990)}\n…`;

@@ -9,9 +9,10 @@ service cloud.firestore {
     function owner() { return request.auth != null && request.auth.uid == 'ngguawiypAgBzow5UKhHqoKCcXs2'; }
     function worker() { return request.auth != null && request.auth.token.email in ['smena1@tabel-smeny.app']; }
     function okShipment(d) {
-      return d.keys().hasOnly(['shift', 'qty', 'product', 'color', 'at', 'by', 'createdAt'])
+      return d.keys().hasOnly(['shift', 'qty', 'product', 'color', 'unit', 'at', 'by', 'createdAt'])
         && d.shift is string && d.shift.size() <= 20
         && d.qty is number && d.qty > 0 && d.qty <= 100000
+        && (!('unit' in d) || d.unit in ['коробок', 'штук'])
         && d.product is string && d.product.size() > 0 && d.product.size() <= 80
         && (!('color' in d) || (d.color is string && d.color.size() <= 40))
         && d.at is string && d.at.size() <= 40;
