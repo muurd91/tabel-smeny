@@ -1,0 +1,47 @@
+# Итог смены в личный Telegram мастера: сколько и чего сдали (скрипт — remind/shift-summary.mjs).
+# В 7:25 — итог ночной смены, в 19:25 — дневной. Время в cron — UTC (Беларусь = UTC+3): 4:25 = 7:25, 16:25 = 19:25.
+# Точно в срок запускает внешний будильник (cron-job.org) командой workflow_dispatch: mode=auto, slot=morning|evening.
+# Расписание GitHub ниже — запасное: оно опаздывает на часы; опоздавшие и повторные запуски скрипт пропускает.
+name: Итог смены
+
+on:
+  schedule:
+    - cron: '25 4 * * *'    # 7:25 — итог ночной смены
+    - cron: '25 16 * * *'   # 19:25 — итог дневной смены
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'test — прислать сводку текущей смены сейчас; auto — как по расписанию'
+        default: test
+        type: choice
+        options: [test, auto]
+      slot:
+        description: 'для auto: morning — 7:25 (ночная смена), evening — 19:25 (дневная)'
+        default: ''
+        type: string
+
+concurrency:
+  group: shift-summary
+  cancel-in-progress: false
+
+permissions:
+  actions: write # чтобы GitHub не выключил расписание через 60 дней без коммитов
+
+jobs:
+  summary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save --no-audit --no-fund firebase-admin@14.5.0
+      - run: node remind/shift-summary.mjs
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SA }}
+          TZ_OFFSET: '3'
+          MODE: ${{ inputs.mode || 'auto' }}
+          SLOT: ${{ inputs.slot || github.event.schedule }}
+      - run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/shift-summary.yml/enable"
+        env:
+          GH_TOKEN: ${{ github.token }}
