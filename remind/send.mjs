@@ -6,7 +6,7 @@
 // Потом отмечает в Firestore, что ушло (tgSentAt, mailSentAt), — повторно не отправится.
 //
 // MODE: auto — по расписанию (только 1-го и 16-го, если ещё не отправлено);
-//       test — отправить текущий снимок сейчас с пометкой «тест», ничего не отмечая;
+//       test — отправить текущий снимок сейчас в Telegram с пометкой «тест», ничего не отмечая (на почту в этом режиме не шлёт);
 //       selftest — без Firestore, Telegram и почты: вымышленные данные → картинка и Excel в out/ (проверка отрисовки).
 
 import vm from 'node:vm';
@@ -134,12 +134,13 @@ for (const doc of docs) {
         : r.start < (tg.since || '') ? 'бот подключён позже начала этого снимка'
           : st.sentAt || st.tgSentAt ? 'уже отправлено' : '';
   // Почта
-  const mailWhy = !mailTo.length ? 'адреса не заданы в приложении'
-    : !MAIL_USER || !MAIL_PASS ? 'не заданы секреты MAIL_USER и MAIL_PASS'
-      : test ? ''
+  // В режиме проверки письма не уходят — только Telegram (получатели почты не должны получать пробные письма)
+  const mailWhy = test ? 'режим проверки: письма не отправляются'
+    : !mailTo.length ? 'адреса не заданы в приложении'
+      : !MAIL_USER || !MAIL_PASS ? 'не заданы секреты MAIL_USER и MAIL_PASS'
         : mail.auto === false ? 'автоотправка выключена в приложении'
           : st.mailSentAt ? 'уже отправлено' : '';
-  if (mailTo.length && (!MAIL_USER || !MAIL_PASS)) console.log('::warning::Адреса для почты заданы, но нет секретов MAIL_USER и MAIL_PASS — письмо не отправлено.');
+  if (!test && mailTo.length && (!MAIL_USER || !MAIL_PASS)) console.log('::warning::Адреса для почты заданы, но нет секретов MAIL_USER и MAIL_PASS — письмо не отправлено.');
 
   const prefix = test ? '🧪 Проверка отправки по расписанию. ' : '';
   const done = {};
