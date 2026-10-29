@@ -36,7 +36,7 @@ const CONFIG = {
     appId: '1:289674888630:web:7ef12e222c029ab06dad17',
     sdk: '13.0.0',
     // uid владельца (виден в приложении: «Настройки» → «Облако»). Планировщики GitHub берут табель только из его папки.
-    owner: '21bkbxWmgNNyNrUyxc4HyhbHdCA2',
+    owner: 'ngguawiypAgBzow5UKhHqoKCcXs2',
   },
 
   // Табель 16-го и 1-го уходит в группу в это время (по местному): планировщиком GitHub,
