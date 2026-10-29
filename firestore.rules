@@ -1,0 +1,11 @@
+// Правила Firestore проекта «Табель смены» — вставить в консоли Firebase: Firestore Database → Rules → Publish.
+// Каждый видит и пишет только свою папку users/<его uid>. Планировщики GitHub ходят ключом сервисного аккаунта —
+// он правила обходит, поэтому читает табель владельца (js/config.js → firebase.owner).
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/apps/{doc} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

@@ -25,15 +25,15 @@ const CONFIG = {
   absenceReasons: ['заявление за свой счёт', 'прогул'],
   partialReasons: ['заявление'],
 
-  // Облако — Firebase (проект proizvodstvo, общий с будущим «Журналом»). Конфиг не секрет:
+  // Облако — Firebase (свой проект tabel-smeny, отдельный от «Журнала производства»). Конфиг не секрет:
   // данные закрыты правилами Firestore — каждый видит только свой users/<uid>.
   firebase: {
-    apiKey: 'AIzaSyC5vxVP5eH-_8C2q3UEB9JhiJYslD7Zxgk',
-    authDomain: 'proizvodstvo-8934e.firebaseapp.com',
-    projectId: 'proizvodstvo-8934e',
-    storageBucket: 'proizvodstvo-8934e.firebasestorage.app',
-    messagingSenderId: '502899625438',
-    appId: '1:502899625438:web:3cabbf6696fb712b5c614f',
+    apiKey: 'AIzaSyBR4d8ebixZZQKkbCpebOxg6TDEdP0jaC8',
+    authDomain: 'tabel-smeny.firebaseapp.com',
+    projectId: 'tabel-smeny',
+    storageBucket: 'tabel-smeny.firebasestorage.app',
+    messagingSenderId: '289674888630',
+    appId: '1:289674888630:web:7ef12e222c029ab06dad17',
     sdk: '13.0.0',
     // uid владельца (виден в приложении: «Настройки» → «Облако»). Планировщики GitHub берут табель только из его папки.
     owner: '21bkbxWmgNNyNrUyxc4HyhbHdCA2',
