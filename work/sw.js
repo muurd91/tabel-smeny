@@ -1,9 +1,9 @@
 // Офлайн-оболочка страницы работников (/work/): страница — сначала сеть, остальное — из кэша с обновлением в фоне.
 // Свой scope (work/) — основной service worker приложения эту страницу не трогает.
 // Версия — та же, что у приложения: её поднимает tools/bump.sh вместе с ?v= в index.html и номером на странице.
-const VERSION = '69';
+const VERSION = '70';
 const CACHE = `tw-shell-v${VERSION}`;
-const SHELL = ['./', 'index.html', 'manifest.webmanifest', `work.js?v=${VERSION}`, `work.css?v=${VERSION}`, `../css/style.css?v=${VERSION}`, `../js/config.js?v=${VERSION}`, '../icons/icon-192.png'];
+const SHELL = ['./', 'index.html', 'manifest.webmanifest', `work.js?v=${VERSION}`, `work.css?v=${VERSION}`, `../css/style.css?v=${VERSION}`, `../js/config.js?v=${VERSION}`, `../js/sheet-drag.js?v=${VERSION}`, '../icons/icon-192.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));

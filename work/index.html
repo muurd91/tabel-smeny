@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#2F5D4E">
   <meta name="color-scheme" content="light">
   <!-- Версия: та же, что VERSION в work/sw.js и ?v= у файлов ниже (меняет tools/bump.sh) -->
-  <meta name="app-version" content="69">
+  <meta name="app-version" content="70">
   <!-- iPhone: ярлык на экране «Домой» открывается как приложение (без адресной строки), с этим названием под значком -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -16,8 +16,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
   <link rel="icon" href="../icons/icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="../css/style.css?v=69">
-  <link rel="stylesheet" href="work.css?v=69">
+  <link rel="stylesheet" href="../css/style.css?v=70">
+  <link rel="stylesheet" href="work.css?v=70">
 </head>
 <body class="work">
   <!-- Шапка как в приложении: слева смена (тип, дата, сколько осталось, полоса хода), справа — связь -->
@@ -35,7 +35,8 @@
     <p class="sheet__sub" id="update-text"></p>
     <div class="sheet__actions"><button class="btn" id="update-later" type="button">Позже</button><button class="btn btn--primary" id="update-now" type="button">Обновить</button></div>
   </div></dialog>
-  <script src="../js/config.js?v=69"></script>
-  <script src="work.js?v=69"></script>
+  <script src="../js/config.js?v=70"></script>
+  <script src="../js/sheet-drag.js?v=70"></script>
+  <script src="work.js?v=70"></script>
 </body>
 </html>

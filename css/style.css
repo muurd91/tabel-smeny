@@ -315,7 +315,8 @@ label.shiftbar__date { cursor: pointer; }
 }
 .sheet::backdrop { background: var(--scrim); }
 .sheet__body { padding: 18px 16px calc(16px + env(safe-area-inset-bottom)); }
-.sheet__grip { width: 40px; height: 4px; border-radius: 2px; background: var(--border); margin: -6px auto 12px; }
+.sheet__grip { position: relative; height: 28px; margin: -18px -16px 0; touch-action: none; cursor: grab; } /* вся полоска сверху — зона, за которую тянут окно вниз */
+.sheet__grip::before { content: ""; position: absolute; left: 50%; top: 12px; width: 40px; height: 4px; margin-left: -20px; border-radius: 2px; background: var(--border); }
 .sheet h3 { margin: 0; font-size: 19px; }
 .sheet__sub { color: var(--muted); margin: 2px 0 14px; }
 .sheet__actions { display: flex; gap: 10px; margin-top: 18px; }
