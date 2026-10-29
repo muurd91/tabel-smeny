@@ -27,7 +27,8 @@ body.work { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
 .wunit .seg__btn { padding-left: 12px; padding-right: 12px; }
 .wlist__qty { white-space: nowrap; }
 .wqty { flex: 1 1 0; width: 0; min-width: 0; }
-.wunit .seg__btn { white-space: nowrap; min-height: 44px; }
+.wunit .seg__btn { white-space: nowrap; min-height: 40px; } /* 40 + 2×4 отступа = 48px, как у полей ввода */
+.wtimerow { align-items: flex-start; }
 
 /* ---------- Ползунок «коробок | штук»: жидкое стекло ---------- */
 .wunit { position: relative; isolation: isolate; background: var(--surface-2); box-shadow: inset 0 1px 3px rgb(30 43 37 / .14); }

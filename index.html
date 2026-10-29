@@ -6,15 +6,15 @@
   <meta name="theme-color" content="#2F5D4E">
   <meta name="color-scheme" content="light">
   <!-- Версия приложения: та же, что VERSION в sw.js и ?v= у файлов ниже (меняет tools/bump.sh) -->
-  <meta name="app-version" content="55">
+  <meta name="app-version" content="57">
   <title>Табель смены</title>
   <meta name="apple-mobile-web-app-title" content="Табель смены">
   <meta name="application-name" content="Табель смены">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/style.css?v=55">
-  <link rel="stylesheet" href="css/splash.css?v=55">
+  <link rel="stylesheet" href="css/style.css?v=57">
+  <link rel="stylesheet" href="css/splash.css?v=57">
 </head>
 <body>
   <!-- Заставка при запуске — только телефон в портрете (css/splash.css, js/splash.js); после показа удаляется -->
@@ -42,7 +42,7 @@
     </div>
     <div class="splash__sig">Идея и разработка — <b>А. Н. Меньков</b></div>
   </div>
-  <script src="js/splash.js?v=55"></script>
+  <script src="js/splash.js?v=57"></script>
 
   <header class="top" id="top">
     <!-- Шапка из двух блоков: смена (тип, дата, сколько осталось, полоса хода смены) и состояние облака.
@@ -79,15 +79,15 @@
   <input type="file" id="file-json" accept=".json,application/json" hidden>
 
   <!-- ?v= — чтобы новая страница никогда не взяла из кэша старые скрипты (иначе после обновления — пустой экран) -->
-  <script src="js/config.js?v=55"></script>
-  <script src="js/data.js?v=55"></script>
-  <script src="js/cloud.js?v=55"></script>
-  <script src="js/xlsx.js?v=55"></script>
-  <script src="js/telegram.js?v=55"></script>
-  <script src="js/report.js?v=55"></script>
-  <script src="js/production.js?v=55"></script>
-  <script src="js/app.js?v=55"></script>
-  <script src="js/update.js?v=55"></script>
+  <script src="js/config.js?v=57"></script>
+  <script src="js/data.js?v=57"></script>
+  <script src="js/cloud.js?v=57"></script>
+  <script src="js/xlsx.js?v=57"></script>
+  <script src="js/telegram.js?v=57"></script>
+  <script src="js/report.js?v=57"></script>
+  <script src="js/production.js?v=57"></script>
+  <script src="js/app.js?v=57"></script>
+  <script src="js/update.js?v=57"></script>
   <script>
     // app.js в конце ставит window.appStarted; если его нет — что-то не загрузилось или упало при запуске.
     if (!window.appStarted) document.getElementById('app-error').hidden = false;

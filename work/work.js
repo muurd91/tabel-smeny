@@ -160,9 +160,12 @@
           <div class="seg wunit" role="tablist" aria-label="Единица"><span class="wthumb" aria-hidden="true"></span>${['коробок', 'штук'].map((u) => `<button class="seg__btn${d.unit === u ? ' is-on' : ''}" data-unit="${u}" role="tab" aria-selected="${d.unit === u}" type="button">${u}</button>`).join('')}</div>
         </div></div>
       ${colorBlock}
-      <label class="check mt-12"><input type="checkbox" id="s-noholes"${d.noHoles ? ' checked' : ''}><span>Без отверстий</span></label>
-      <label class="field"><span class="field__label">Время отвоза</span>
-        <input class="input input--short" id="s-time" type="time" value="${esc(d.touched ? d.time : hhmm(new Date()))}"></label>
+      <div class="row row--nowrap wtimerow">
+        <label class="field field--flush"><span class="field__label">Время отвоза</span>
+          <input class="input input--short" id="s-time" type="time" value="${esc(d.touched ? d.time : hhmm(new Date()))}"></label>
+        <div class="field field--flush grow"><span class="field__label">Отверстия</span>
+          <div class="seg wunit wholes" role="tablist" aria-label="Отверстия"><span class="wthumb" aria-hidden="true"></span>${[['yes', 'есть'], ['no', 'нет']].map(([k, label]) => `<button class="seg__btn${(d.noHoles ? 'no' : 'yes') === k ? ' is-on' : ''}" data-holes="${k}" role="tab" aria-selected="${(d.noHoles ? 'no' : 'yes') === k}" type="button">${label}</button>`).join('')}</div></div>
+      </div>
       <p class="werr" id="s-err">${esc(d.err)}</p>
       <div class="sheet__actions"><button class="btn" value="cancel">Отмена</button><button class="btn btn--primary" id="s-save" type="button" ${d.busy ? 'disabled' : ''}>${d.busy ? 'Записываю…' : 'Сдать'}</button></div>`;
     placeThumb(false);
@@ -203,8 +206,8 @@
   // ---------- Ползунок «коробок | штук»: стеклянная капля перетекает на новое место ----------
   // Не перерисовываем окно (иначе анимировать нечего): двигаем один и тот же элемент. Капля растягивается
   // в сторону движения, перетекает и слегка пружинит. Если у человека включено «уменьшить анимацию» — просто переезжает.
-  function placeThumb(animate) {
-    const seg = $('#sheet .wunit');
+  function placeThumb(animate, seg) {
+    if (!seg) { document.querySelectorAll('#sheet .wunit').forEach((s) => placeThumb(animate, s)); return; }
     const thumb = seg?.querySelector('.wthumb');
     const on = seg?.querySelector('.is-on');
     if (!thumb || !on || !on.offsetWidth) return;
@@ -222,15 +225,20 @@
       { left: to.left + 'px', width: to.width + 'px', transform: 'scale(1, 1)' },
     ], { duration: 560, easing: 'cubic-bezier(.3, .7, .3, 1)' });
   }
-  function setUnit(u) {
-    if (!draft || draft.unit === u) return;
-    draft.unit = u;
-    document.querySelectorAll('#sheet .wunit .seg__btn').forEach((b) => {
-      const on = b.dataset.unit === u;
+  // Переключатель «коробок | штук» и «отверстия есть | нет»: не перерисовываем окно, двигаем каплю
+  function setSeg(btn) {
+    if (!draft) return;
+    const key = btn.dataset.unit ? 'unit' : 'holes';
+    const val = btn.dataset.unit || btn.dataset.holes;
+    if (key === 'unit') { if (draft.unit === val) return; draft.unit = val; }
+    else { if (draft.noHoles === (val === 'no')) return; draft.noHoles = val === 'no'; }
+    const seg = btn.closest('.wunit');
+    seg.querySelectorAll('.seg__btn').forEach((b) => {
+      const on = b === btn;
       b.classList.toggle('is-on', on);
       b.setAttribute('aria-selected', on);
     });
-    placeThumb(true);
+    placeThumb(true, seg);
   }
   window.addEventListener('resize', () => placeThumb(false));
 
@@ -288,14 +296,13 @@
     else if (id === 's-time') { draft.time = e.target.value; draft.touched = true; }
   });
   document.addEventListener('change', (e) => {
-    if (draft && e.target.id === 's-noholes') draft.noHoles = e.target.checked;
-    else if (draft && e.target.id === 's-pick') { draft.pick = e.target.value; renderSheet(); $('#s-qty')?.focus(); }
+    if (draft && e.target.id === 's-pick') { draft.pick = e.target.value; renderSheet(); $('#s-qty')?.focus(); }
   });
   document.addEventListener('click', async (e) => {
     const t = e.target.closest('button');
     if (!t) return;
     if (t.id === 's-save') saveSheet();
-    else if (t.dataset.unit) setUnit(t.dataset.unit);
+    else if (t.dataset.unit || t.dataset.holes) setSeg(t);
     else if (t.dataset.color !== undefined) {
       if (draft) {
         draft.color = draft.color === t.dataset.color ? '' : t.dataset.color;
