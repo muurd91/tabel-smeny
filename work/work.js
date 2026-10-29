@@ -87,6 +87,10 @@
   const unitOf = (e) => (e.unit === 'штук' ? 'штук' : 'коробок'); // записи без единицы — коробки
   const totalText = (list) => ['коробок', 'штук'].map((u) => [u, list.filter((e) => unitOf(e) === u).reduce((s, e) => s + e.qty, 0)]).filter(([, q]) => q).map(([u, q]) => `${num(q)} ${u}`).join(', ') || '0';
   const nameOf = (e) => [e.product, e.color, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', ');
+  // Когда запись добавлена: createdAt = null — ещё не дошла до сервера (самая свежая); у старых записей поля нет — берём время отвоза
+  const addedAt = (e) => (e.createdAt?.toMillis ? e.createdAt.toMillis() : 'createdAt' in e ? Infinity : Date.parse(e.at));
+  // Строка списка: станок — время — вид продукции — количество — цвет
+  const rowText = (e) => `<b>${e.machine ? esc(e.machine) : '—'}</b><span class="wlist__sep">·</span>${hhmm(new Date(e.at))}<span class="wlist__sep">·</span>${esc([e.product, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', '))}<span class="wlist__sep">·</span><b>${num(e.qty)} ${unitOf(e)}</b>${e.color ? `<span class="wlist__sep">·</span>${esc(e.color)}` : ''}`;
   let error = '';
   let loggingIn = false; // идёт вход
   let draft = null;      // открытое окно «Сдать продукцию»
@@ -100,7 +104,7 @@
     if (!user) return;
     const { fs, db } = fb;
     unsubs.push(fs.onSnapshot(fs.query(fs.collection(db, 'shipments'), fs.where('shift', '==', shift.id)), (snap) => {
-      entries = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.at.localeCompare(b.at));
+      entries = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => addedAt(b) - addedAt(a)); // сверху — последняя добавленная
       pending = !!snap.metadata?.hasPendingWrites;
       renderHeader();
       render();
@@ -318,8 +322,7 @@
     const sums = new Map();
     for (const e of entries) { const k = `${nameOf(e)}|${unitOf(e)}`; sums.set(k, (sums.get(k) || 0) + e.qty); }
     return `<ul class="wlist">${entries.map((e) => `<li>
-        <span class="wlist__qty">${num(e.qty)} ${unitOf(e)}</span>
-        <span class="wlist__main">${esc(nameOf(e))}<br><span class="small muted">${e.machine ? `${esc(e.machine)} · ` : ''}отвезли в ${hhmm(new Date(e.at))}</span></span>
+        <span class="wlist__main">${rowText(e)}</span>
         <button class="btn btn--icon" data-del="${esc(e.id)}" type="button" aria-label="Удалить запись">✕</button></li>`).join('')}</ul>
       <div class="mt-12">${[...sums].map(([k, q]) => { const [p, u] = k.split('|'); return `<div class="wsum"><span>${esc(p)}</span><b>${num(q)} ${u}</b></div>`; }).join('')}
         <div class="wsum"><span><b>Всего</b></span><b>${totalText(entries)}</b></div></div>`;

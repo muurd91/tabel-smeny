@@ -8,6 +8,10 @@ const Production = (() => {
   const pad = (n) => String(n).padStart(2, '0');
   const isoDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const hhmm = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  // Когда запись добавлена: createdAt = null — ещё не дошла до сервера (самая свежая); у старых записей поля нет — берём время отвоза
+  const addedAt = (e) => (e.createdAt?.toMillis ? e.createdAt.toMillis() : 'createdAt' in e ? Infinity : Date.parse(e.at));
+  // Строка списка: станок — время — вид продукции — количество — цвет
+  const rowText = (e) => `<b>${e.machine ? esc(e.machine) : '—'}</b><span class="prod__sep">·</span>${hhmm(new Date(e.at))}<span class="prod__sep">·</span>${esc([e.product, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', '))}<span class="prod__sep">·</span><b>${num(e.qty)} ${unitOf(e)}</b>${e.color ? `<span class="prod__sep">·</span>${esc(e.color)}` : ''}`;
   const num = (n) => String(n).replace('.', ',');
 
   // Смена по времени, как на странице работников: дневная 7:30–19:30, ночная 19:30–7:30 (до 7:30 — вчерашняя ночная)
@@ -62,7 +66,7 @@ const Production = (() => {
     active = true;
     const { fs, db } = api;
     unsubs.push(fs.onSnapshot(fs.query(fs.collection(db, 'shipments'), fs.where('shift', '==', id)), (snap) => {
-      entries = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.at.localeCompare(b.at));
+      entries = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => addedAt(b) - addedAt(a)); // сверху — последняя добавленная
       refresh();
     }, () => {}));
     unsubs.push(fs.onSnapshot(fs.doc(db, 'settings', 'production'), (snap) => {
@@ -138,7 +142,7 @@ const Production = (() => {
       : `<div class="prod__sums">${[...sums].map(([k, q]) => { const [p, u] = k.split('|'); return `<div class="prod__sum"><span>${esc(p)}</span><b>${num(q)} ${u}</b></div>`; }).join('')}
           <div class="prod__sum prod__sum--total"><span>Всего</span><b>${totalText(entries)}</b></div></div>
         <details class="prod__more"><summary>Записи (${entries.length})</summary>
-          <ul class="prod__list">${entries.map((e) => `<li><span class="prod__time">${hhmm(new Date(e.at))}</span><span class="grow">${e.machine ? `${esc(e.machine)} · ` : ''}${esc(nameOf(e))}</span><b>${num(e.qty)} ${unitOf(e)}</b><button class="btn btn--icon" data-prod-del="${esc(e.id)}" type="button" aria-label="Удалить запись">${ICON.x}</button></li>`).join('')}</ul></details>`;
+          <ul class="prod__list">${entries.map((e) => `<li><span class="grow">${rowText(e)}</span><button class="btn btn--icon" data-prod-del="${esc(e.id)}" type="button" aria-label="Удалить запись">${ICON.x}</button></li>`).join('')}</ul></details>`;
     return `${machinesHtml()}<div class="card prod"><h2>Сдано за смену</h2><p class="small muted">${esc(head)} · вносят на странице для работников</p>${body}
       <a class="btn btn--block mt-12" href="work/">Страница продукции →</a></div>`;
   }

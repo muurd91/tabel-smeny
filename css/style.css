@@ -426,6 +426,7 @@ label.shiftbar__date { cursor: pointer; }
 .prod__list li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); }
 .prod__list li:last-child { border-bottom: 0; }
 .prod__time { color: var(--muted); font-variant-numeric: tabular-nums; }
+.prod__sep, .wlist__sep { color: var(--muted); margin: 0 5px; }
 
 /* ---------- Станки на «Смене»: работает / стоит и вид продукции ---------- */
 .mach__row { display: grid; grid-template-columns: 34px auto 1fr; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
