@@ -1397,9 +1397,11 @@ $('#view-more').addEventListener('click', async (e) => {
     toast(to.length ? `Сохранено адресов: ${to.length}` : 'Адреса очищены — письма не отправляются');
   }
   if (act === 'prod-save') {
-    const list = [...new Set($('#prod-list').value.split('\n').map((x) => x.trim()).filter(Boolean))];
-    Production.saveProducts(list)
-      .then(() => toast(list.length ? `Сохранено видов: ${list.length}` : 'Список очищен — работники вводят вид текстом'))
+    const lines = (id) => [...new Set($(id).value.split('\n').map((x) => x.trim()).filter(Boolean))];
+    const list = lines('#prod-list');
+    const colorList = lines('#prod-colors');
+    Production.saveLists(list, colorList)
+      .then(() => toast(`Сохранено: видов ${list.length}, цветов ${colorList.length}`))
       .catch((e) => toast(e.message || 'Не сохранилось'));
   }
   if (act === 'signin') Cloud.signInGoogle();

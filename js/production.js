@@ -22,6 +22,7 @@ const Production = (() => {
   let shiftId = '';
   let entries = [];
   let products = [];
+  let colors = [];
   let unsubs = [];
   let active = false;
 
@@ -50,18 +51,18 @@ const Production = (() => {
       refresh();
     }, () => {}));
     unsubs.push(fs.onSnapshot(fs.doc(db, 'settings', 'production'), (snap) => {
-      products = snap.exists() && Array.isArray(snap.data().products) ? snap.data().products.map(String) : [];
+      const d = snap.exists() ? snap.data() : {};
+      products = Array.isArray(d.products) ? d.products.map(String) : [];
+      colors = Array.isArray(d.colors) ? d.colors.map(String) : [];
       refresh();
     }, () => {}));
     return true;
   }
 
-  const listOf = () => products.slice();
-
-  async function saveProducts(list) {
+  async function saveLists(list, colorList) {
     const api = Cloud.api();
     if (!api) throw new Error('Войдите в облако');
-    await api.fs.setDoc(api.fs.doc(api.db, 'settings', 'production'), { products: list });
+    await api.fs.setDoc(api.fs.doc(api.db, 'settings', 'production'), { products: list, colors: colorList });
   }
 
   async function remove(id) {
@@ -74,7 +75,8 @@ const Production = (() => {
     if (!ensure()) return '';
     const s = shiftOf();
     const sums = new Map();
-    for (const e of entries) sums.set(e.product, (sums.get(e.product) || 0) + e.qty);
+    const nameOf = (e) => (e.color ? `${e.product}, ${e.color}` : e.product);
+    for (const e of entries) sums.set(nameOf(e), (sums.get(nameOf(e)) || 0) + e.qty);
     const total = entries.reduce((t, e) => t + e.qty, 0);
     const head = `${s.night ? 'Ночная' : 'Дневная'} смена · ${pad(s.day.getDate())}.${pad(s.day.getMonth() + 1)}`;
     const body = !entries.length
@@ -82,20 +84,21 @@ const Production = (() => {
       : `<div class="prod__sums">${[...sums].map(([p, q]) => `<div class="prod__sum"><span>${esc(p)}</span><b>${num(q)}</b></div>`).join('')}
           <div class="prod__sum prod__sum--total"><span>Всего коробок</span><b>${num(total)}</b></div></div>
         <details class="prod__more"><summary>Записи (${entries.length})</summary>
-          <ul class="prod__list">${entries.map((e) => `<li><span class="prod__time">${hhmm(new Date(e.at))}</span><span class="grow">${esc(e.product)}</span><b>${num(e.qty)}</b><button class="btn btn--icon" data-prod-del="${esc(e.id)}" type="button" aria-label="Удалить запись">${ICON.x}</button></li>`).join('')}</ul></details>`;
+          <ul class="prod__list">${entries.map((e) => `<li><span class="prod__time">${hhmm(new Date(e.at))}</span><span class="grow">${esc(nameOf(e))}</span><b>${num(e.qty)}</b><button class="btn btn--icon" data-prod-del="${esc(e.id)}" type="button" aria-label="Удалить запись">${ICON.x}</button></li>`).join('')}</ul></details>`;
     return `<div class="card prod"><h2>Сдано за смену</h2><p class="small muted">${esc(head)} · вносят на странице для работников</p>${body}</div>`;
   }
 
   // Карточка в «Настройках»: список видов продукции
   function settingsHtml() {
     if (!ensure()) return '<p class="small muted">Список видов продукции для работников правится после входа в облако под аккаунтом владельца.</p>';
-    return `<p class="small muted">Работники выбирают вид из этого списка (есть и «Другое…» со свободным текстом). По одному названию в строке.</p>
-      <label class="field"><span class="field__label">Виды продукции</span><textarea class="input" id="prod-list" rows="6" placeholder="например:&#10;Грунт 5 л&#10;Торф 20 л">${esc(listOf().join('\n'))}</textarea></label>
-      <button class="btn btn--primary btn--block" data-act="prod-save" type="button">Сохранить список</button>`;
+    return `<p class="small muted">Работники выбирают из этих списков (есть и «Другое…» со свободным текстом). По одному названию в строке. Итоги считаются по точному названию.</p>
+      <label class="field"><span class="field__label">Виды продукции</span><textarea class="input" id="prod-list" rows="6" placeholder="например:&#10;Грунт 5 л&#10;Торф 20 л">${esc(products.join('\n'))}</textarea></label>
+      <label class="field"><span class="field__label">Цвета</span><textarea class="input" id="prod-colors" rows="4" placeholder="например:&#10;чёрный&#10;белый">${esc(colors.join('\n'))}</textarea></label>
+      <button class="btn btn--primary btn--block" data-act="prod-save" type="button">Сохранить списки</button>`;
   }
 
   Cloud.onChange(() => { ensure(); });
   document.addEventListener('visibilitychange', () => { if (!document.hidden && active) ensure(); });
 
-  return { cardHtml, settingsHtml, saveProducts, remove, shiftOf };
+  return { cardHtml, settingsHtml, saveLists, remove, shiftOf };
 })();

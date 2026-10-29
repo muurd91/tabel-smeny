@@ -9,10 +9,11 @@ service cloud.firestore {
     function owner() { return request.auth != null && request.auth.uid == 'ngguawiypAgBzow5UKhHqoKCcXs2'; }
     function worker() { return request.auth != null && request.auth.token.email in ['smena1@tabel-smeny.app']; }
     function okShipment(d) {
-      return d.keys().hasOnly(['shift', 'qty', 'product', 'at', 'by', 'createdAt'])
+      return d.keys().hasOnly(['shift', 'qty', 'product', 'color', 'at', 'by', 'createdAt'])
         && d.shift is string && d.shift.size() <= 20
         && d.qty is number && d.qty > 0 && d.qty <= 100000
         && d.product is string && d.product.size() > 0 && d.product.size() <= 80
+        && (!('color' in d) || (d.color is string && d.color.size() <= 40))
         && d.at is string && d.at.size() <= 40;
     }
 
@@ -25,7 +26,7 @@ service cloud.firestore {
       allow create, update: if (owner() || worker()) && okShipment(request.resource.data);
     }
 
-    // Список видов продукции для выпадающего списка: правит владелец, работники читают
+    // Списки видов продукции и цветов для выпадающих списков: правит владелец, работники читают
     match /settings/production {
       allow read: if owner() || worker();
       allow write: if owner();

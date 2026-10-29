@@ -72,9 +72,10 @@
   let shift = shiftOf();
   let entries = [];
   let products = [];
+  let colors = [];
   let unsubs = [];
   const creds = { name: '', pass: '' }; // логин и пароль переживают перерисовку (после ошибки не стираются)
-  const form = { qty: '', product: '', other: '', time: '', timeTouched: false };
+  const form = { qty: '', product: '', other: '', color: '', colorOther: '', time: '', timeTouched: false };
   let error = '';
   let busy = false;      // идёт запись
   let loggingIn = false; // идёт вход
@@ -89,7 +90,9 @@
       render();
     }, (e) => { error = explain(e); render(); }));
     unsubs.push(fs.onSnapshot(fs.doc(db, 'settings', 'production'), (snap) => {
-      products = snap.exists() && Array.isArray(snap.data().products) ? snap.data().products.map(String).filter(Boolean) : [];
+      const d = snap.exists() ? snap.data() : {};
+      products = Array.isArray(d.products) ? d.products.map(String).filter(Boolean) : [];
+      colors = Array.isArray(d.colors) ? d.colors.map(String).filter(Boolean) : [];
       render();
     }, () => { /* списка нет — вводят текстом */ }));
   }
@@ -106,6 +109,7 @@
     const product = (products.length && form.product !== '__other' ? form.product : form.other).trim();
     if (!(qty > 0)) { error = 'Укажите, сколько коробок.'; return render(); }
     if (!product) { error = 'Укажите вид продукции.'; return render(); }
+    const color = (colors.length && form.color !== '__other' ? form.color : form.colorOther).trim();
     const time = form.time || hhmm(new Date());
     const at = atOf(time, shift);
     if (at < shift.start - 30 * 60e3 || at > shift.end.getTime() + 60 * 60e3) { error = 'Время отвоза не входит в эту смену.'; return render(); }
@@ -115,9 +119,9 @@
     try {
       const { fs, db } = fb;
       await fs.addDoc(fs.collection(db, 'shipments'), {
-        shift: shift.id, qty, product, at: at.toISOString(), by: (user.email || '').split('@')[0], createdAt: fs.serverTimestamp(),
+        shift: shift.id, qty, product, ...(color ? { color } : {}), at: at.toISOString(), by: (user.email || '').split('@')[0], createdAt: fs.serverTimestamp(),
       });
-      Object.assign(form, { qty: '', other: '', timeTouched: false, time: '' });
+      Object.assign(form, { qty: '', colorOther: '', timeTouched: false, time: '' });
     } catch (e) { error = explain(e); }
     busy = false;
     render();
@@ -147,12 +151,22 @@
           </select></label>
          ${form.product === '__other' ? `<label class="field"><span class="field__label">Какая продукция</span><input class="input" id="f-other" value="${esc(form.other)}" autocomplete="off"></label>` : ''}`
       : `<label class="field"><span class="field__label">Вид продукции</span><input class="input" id="f-other" value="${esc(form.other)}" autocomplete="off" placeholder="например, грунт 5 л"></label>`;
+    const colorField = colors.length
+      ? `<label class="field"><span class="field__label">Цвет</span>
+          <select class="input" id="f-color">
+            <option value="">— без цвета —</option>
+            ${colors.map((c) => `<option value="${esc(c)}"${form.color === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}
+            <option value="__other"${form.color === '__other' ? ' selected' : ''}>Другой…</option>
+          </select></label>
+         ${form.color === '__other' ? `<label class="field"><span class="field__label">Какой цвет</span><input class="input" id="f-color-other" value="${esc(form.colorOther)}" autocomplete="off"></label>` : ''}`
+      : `<label class="field"><span class="field__label">Цвет</span><input class="input" id="f-color-other" value="${esc(form.colorOther)}" autocomplete="off" placeholder="если есть"></label>`;
     app.innerHTML = `
       <div class="card">
         <h2>Записать отвоз</h2>
         <label class="field"><span class="field__label">Количество, коробок</span>
           <input class="input" id="f-qty" type="text" inputmode="decimal" value="${esc(form.qty)}" autocomplete="off" placeholder="0"></label>
         ${sel}
+        ${colorField}
         <label class="field"><span class="field__label">Время отвоза</span>
           <input class="input input--short" id="f-time" type="time" value="${esc(time)}"></label>
         <button class="btn btn--primary btn--block mt-12" id="f-add" type="button" ${busy ? 'disabled' : ''}>${busy ? 'Записываю…' : 'Записать'}</button>
@@ -165,11 +179,12 @@
   function listHtml() {
     if (!entries.length) return '<p class="muted">Пока ничего не записано.</p>';
     const sums = new Map();
-    for (const e of entries) sums.set(e.product, (sums.get(e.product) || 0) + e.qty);
+    const nameOf = (e) => (e.color ? `${e.product}, ${e.color}` : e.product);
+    for (const e of entries) sums.set(nameOf(e), (sums.get(nameOf(e)) || 0) + e.qty);
     const total = entries.reduce((s, e) => s + e.qty, 0);
     return `<ul class="wlist">${entries.map((e) => `<li>
         <span class="wlist__qty">${num(e.qty)}</span>
-        <span class="wlist__main">${esc(e.product)}<br><span class="small muted">отвезли в ${hhmm(new Date(e.at))}</span></span>
+        <span class="wlist__main">${esc(nameOf(e))}<br><span class="small muted">отвезли в ${hhmm(new Date(e.at))}</span></span>
         <button class="btn btn--icon" data-del="${esc(e.id)}" type="button" aria-label="Удалить запись">✕</button></li>`).join('')}</ul>
       <div class="mt-12">${[...sums].map(([p, q]) => `<div class="wsum"><span>${esc(p)}</span><b>${num(q)}</b></div>`).join('')}
         <div class="wsum"><span><b>Всего</b></span><b>${num(total)}</b></div></div>`;
@@ -192,10 +207,12 @@
     else if (id === 'l-pass') creds.pass = e.target.value;
     else if (id === 'f-qty') form.qty = e.target.value;
     else if (id === 'f-other') form.other = e.target.value;
+    else if (id === 'f-color-other') form.colorOther = e.target.value;
     else if (id === 'f-time') { form.time = e.target.value; form.timeTouched = true; }
   });
   document.addEventListener('change', (e) => {
     if (e.target.id === 'f-product') { form.product = e.target.value; render(); }
+    else if (e.target.id === 'f-color') { form.color = e.target.value; render(); }
   });
   document.addEventListener('click', async (e) => {
     const t = e.target.closest('button');
