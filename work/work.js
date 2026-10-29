@@ -168,7 +168,7 @@
         <div class="field"><span class="field__label">Количество</span>
           <div class="row row--nowrap">
             <input class="input wqty" id="f-qty" type="text" inputmode="decimal" value="${esc(form.qty)}" autocomplete="off" placeholder="0">
-            <div class="seg wunit" role="tablist" aria-label="Единица">${['коробок', 'штук'].map((u) => `<button class="seg__btn${form.unit === u ? ' is-on' : ''}" data-unit="${u}" role="tab" aria-selected="${form.unit === u}" type="button">${u}</button>`).join('')}</div>
+            <div class="seg wunit" role="tablist" aria-label="Единица"><span class="wthumb" aria-hidden="true"></span>${['коробок', 'штук'].map((u) => `<button class="seg__btn${form.unit === u ? ' is-on' : ''}" data-unit="${u}" role="tab" aria-selected="${form.unit === u}" type="button">${u}</button>`).join('')}</div>
           </div></div>
         ${sel}
         ${colorField}
@@ -179,7 +179,42 @@
       </div>
       <div class="card"><h2>Сдано за смену</h2><div id="list">${listHtml()}</div></div>
       <div class="wbar"><button class="wlink" id="f-out" type="button">Выйти</button></div>`;
+    placeThumb(false);
   }
+
+  // ---------- Ползунок «коробок | штук»: стеклянная капля перетекает на новое место ----------
+  // Не перерисовываем форму (иначе анимировать нечего): двигаем один и тот же элемент. Капля растягивается
+  // в сторону движения, перетекает и слегка пружинит. Если у человека включено «уменьшить анимацию» — просто переезжает.
+  function placeThumb(animate) {
+    const seg = $('.wunit');
+    const thumb = seg?.querySelector('.wthumb');
+    const on = seg?.querySelector('.is-on');
+    if (!thumb || !on) return;
+    const to = { left: on.offsetLeft, width: on.offsetWidth };
+    const from = { left: parseFloat(thumb.style.left) || to.left, width: parseFloat(thumb.style.width) || to.width };
+    thumb.style.left = to.left + 'px';
+    thumb.style.width = to.width + 'px';
+    if (!animate || from.left === to.left || matchMedia('(prefers-reduced-motion: reduce)').matches || !thumb.animate) return;
+    const l = Math.min(from.left, to.left);
+    const r = Math.max(from.left + from.width, to.left + to.width);
+    thumb.animate([
+      { left: from.left + 'px', width: from.width + 'px', transform: 'scale(1, 1)' },
+      { left: l + 'px', width: (r - l) + 'px', transform: 'scale(1, .86)', offset: .4 }, // вытянулась через обе половины
+      { left: to.left + 'px', width: to.width * 1.06 + 'px', transform: 'scale(1.03, 1.06)', offset: .75 }, // «плюхнулась» на место
+      { left: to.left + 'px', width: to.width + 'px', transform: 'scale(1, 1)' },
+    ], { duration: 560, easing: 'cubic-bezier(.3, .7, .3, 1)' });
+  }
+  function setUnit(u) {
+    if (form.unit === u) return;
+    form.unit = u;
+    document.querySelectorAll('.wunit .seg__btn').forEach((b) => {
+      const on = b.dataset.unit === u;
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-selected', on);
+    });
+    placeThumb(true);
+  }
+  window.addEventListener('resize', () => placeThumb(false));
 
   function listHtml() {
     if (!entries.length) return '<p class="muted">Пока ничего не записано.</p>';
@@ -222,7 +257,7 @@
     const t = e.target.closest('button');
     if (!t) return;
     if (t.id === 'f-add') addEntry();
-    else if (t.dataset.unit) { form.unit = t.dataset.unit; render(); }
+    else if (t.dataset.unit) setUnit(t.dataset.unit);
     else if (t.id === 'f-out') { await fb.auth.signOut(fb.au); }
     else if (t.dataset.del) removeEntry(t.dataset.del);
     else if (t.id === 'l-go') {

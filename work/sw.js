@@ -1,6 +1,6 @@
 // Офлайн-оболочка страницы работников (/work/): страница — сначала сеть, остальное — из кэша с обновлением в фоне.
 // Свой scope (work/) — основной service worker приложения эту страницу не трогает.
-const CACHE = 'tw-shell-v3';
+const CACHE = 'tw-shell-v4';
 const SHELL = ['./', 'index.html', 'work.js', 'work.css', 'manifest.webmanifest', '../css/style.css', '../js/config.js', '../icons/icon-192.png'];
 
 self.addEventListener('install', (e) => {
