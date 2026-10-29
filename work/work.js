@@ -242,6 +242,10 @@
     else if (user && !form.timeTouched && !document.activeElement?.matches?.('input, select')) render();
   }, 30000);
 
+  // На телефоне владельца ссылка на эту страницу открывается внутри приложения «Табель смены» — нужен путь назад.
+  // Данные табеля есть в localStorage только там, где открывали само приложение (тот же адрес сайта); у работников кнопки нет.
+  try { if (localStorage.getItem('ts.data')) $('#back').hidden = false; } catch { /* без localStorage — без кнопки */ }
+
   load().then(() => {
     fb.auth.onAuthStateChanged(fb.au, (u) => {
       user = u;
