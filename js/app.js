@@ -1513,7 +1513,11 @@ $('#sync').addEventListener('click', () => go('more'));
 }
 
 DB.onChange(() => render());
-Cloud.onChange(() => { renderSync(); if (UI.view === 'more') renderMore(); Reports.tick(); });
+Cloud.onChange(() => {
+  renderSync(); if (UI.view === 'more') renderMore(); Reports.tick();
+  // Устройство мастера: вошёл владелец — запоминаем (index.html не отправит такое устройство на страницу продукции)
+  try { if (Cloud.info().isOwner) localStorage.setItem('ts.owner', '1'); } catch { /* без localStorage — не запоминаем */ }
+});
 
 // Новая смена — переключиться на неё, если пользователь не листал даты.
 // Перерисовать и просто так: в 7:30 и 19:30 у смены появляются часы по графику.

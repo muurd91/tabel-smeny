@@ -3,18 +3,28 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- Чужое устройство (например, работник набрал адрес без /work/): приложение мастера им ни к чему — на страницу продукции.
+       Своё устройство мастера узнаём по данным табеля (ts.data) или по входу владельца (ts.owner); новое — адрес с ?owner.
+       Сами данные закрыты правилами Firestore, это только чтобы человеку не открывалось чужое приложение. -->
+  <script>
+    try {
+      var ls = window.localStorage;
+      if (/[?&]owner\b/.test(location.search)) { ls.setItem('ts.owner', '1'); history.replaceState(null, '', location.pathname); }
+      if (!ls.getItem('ts.data') && !ls.getItem('ts.owner')) location.replace('work/');
+    } catch (e) { /* без localStorage — приложение открывается как обычно */ }
+  </script>
   <meta name="theme-color" content="#2F5D4E">
   <meta name="color-scheme" content="light">
   <!-- Версия приложения: та же, что VERSION в sw.js и ?v= у файлов ниже (меняет tools/bump.sh) -->
-  <meta name="app-version" content="59">
+  <meta name="app-version" content="62">
   <title>Табель смены</title>
   <meta name="apple-mobile-web-app-title" content="Табель смены">
   <meta name="application-name" content="Табель смены">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/style.css?v=59">
-  <link rel="stylesheet" href="css/splash.css?v=59">
+  <link rel="stylesheet" href="css/style.css?v=62">
+  <link rel="stylesheet" href="css/splash.css?v=62">
 </head>
 <body>
   <!-- Заставка при запуске — только телефон в портрете (css/splash.css, js/splash.js); после показа удаляется -->
@@ -42,7 +52,7 @@
     </div>
     <div class="splash__sig">Идея и разработка — <b>А. Н. Меньков</b></div>
   </div>
-  <script src="js/splash.js?v=59"></script>
+  <script src="js/splash.js?v=62"></script>
 
   <header class="top" id="top">
     <!-- Шапка из двух блоков: смена (тип, дата, сколько осталось, полоса хода смены) и состояние облака.
@@ -79,15 +89,15 @@
   <input type="file" id="file-json" accept=".json,application/json" hidden>
 
   <!-- ?v= — чтобы новая страница никогда не взяла из кэша старые скрипты (иначе после обновления — пустой экран) -->
-  <script src="js/config.js?v=59"></script>
-  <script src="js/data.js?v=59"></script>
-  <script src="js/cloud.js?v=59"></script>
-  <script src="js/xlsx.js?v=59"></script>
-  <script src="js/telegram.js?v=59"></script>
-  <script src="js/report.js?v=59"></script>
-  <script src="js/production.js?v=59"></script>
-  <script src="js/app.js?v=59"></script>
-  <script src="js/update.js?v=59"></script>
+  <script src="js/config.js?v=62"></script>
+  <script src="js/data.js?v=62"></script>
+  <script src="js/cloud.js?v=62"></script>
+  <script src="js/xlsx.js?v=62"></script>
+  <script src="js/telegram.js?v=62"></script>
+  <script src="js/report.js?v=62"></script>
+  <script src="js/production.js?v=62"></script>
+  <script src="js/app.js?v=62"></script>
+  <script src="js/update.js?v=62"></script>
   <script>
     // app.js в конце ставит window.appStarted; если его нет — что-то не загрузилось или упало при запуске.
     if (!window.appStarted) document.getElementById('app-error').hidden = false;

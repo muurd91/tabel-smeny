@@ -30,7 +30,9 @@
     const start = new Date(startDay); start.setHours(night ? 19 : 7, 30, 0, 0);
     return { id: `${isoDate(startDay)}${night ? 'Н' : 'Д'}`, night, start, end: new Date(start.getTime() + 12 * 3600e3) };
   }
-  const shiftTitle = (s) => `${s.night ? 'Ночная' : 'Дневная'} смена · ${pad(s.start.getDate())}.${pad(s.start.getMonth() + 1)} · ${s.night ? '19:30–7:30' : '7:30–19:30'}`;
+  const WD = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+  const MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+  const durText = (ms) => { const min = Math.max(1, Math.ceil(ms / 60000)); const h = Math.floor(min / 60); const m = min % 60; return [h ? `${h} ч` : '', m ? `${m} мин` : ''].filter(Boolean).join(' '); };
 
   // Время отвоза «ЧЧ:ММ» → момент внутри смены (ночью после полуночи — уже следующая дата)
   function atOf(time, shift) {
@@ -86,6 +88,9 @@
   let error = '';
   let loggingIn = false; // идёт вход
   let draft = null;      // открытое окно «Сдать продукцию»
+  let pending = false;   // есть записи, ещё не ушедшие в облако (нет связи)
+  // Своё устройство мастера (там открывали приложение с табелем): в шапке — путь назад в «Табель смены»
+  const ownerDevice = !!(lsGet('ts.data') || lsGet('ts.owner'));
 
   function subscribe() {
     unsubs.forEach((u) => u());
@@ -94,6 +99,8 @@
     const { fs, db } = fb;
     unsubs.push(fs.onSnapshot(fs.query(fs.collection(db, 'shipments'), fs.where('shift', '==', shift.id)), (snap) => {
       entries = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.at.localeCompare(b.at));
+      pending = !!snap.metadata?.hasPendingWrites;
+      renderHeader();
       render();
     }, (e) => { error = explain(e); render(); }));
     unsubs.push(fs.onSnapshot(fs.doc(db, 'settings', 'production'), (snap) => {
@@ -242,10 +249,27 @@
   }
   window.addEventListener('resize', () => placeThumb(false));
 
+  // ---------- Шапка (как в приложении «Табель смены») ----------
+  function renderHeader() {
+    const now = new Date();
+    const s = shiftOf(now);
+    const pct = Math.min(100, Math.max(0, (now - s.start) / (s.end - s.start) * 100));
+    $('#shiftbar').innerHTML = `
+      <div class="shiftbar__date"><span class="shiftbar__title">${s.night ? 'Ночная' : 'Дневная'} · ${WD[s.start.getDay()]}, ${s.start.getDate()} ${MONTHS_GEN[s.start.getMonth()]}</span></div>
+      <div class="shiftbar__status"><b>Осталось ${durText(s.end - now)}</b><span>до ${s.night ? '7:30' : '19:30'}</span></div>
+      <div class="shiftbar__track" role="progressbar" aria-label="Ход смены" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><div class="shiftbar__fill"></div></div>
+      ${ownerDevice ? '<a class="shiftbar__back" href="../">← Табель смены</a>' : ''}`;
+    $('.shiftbar__fill').style.width = `${pct}%`;
+    const state = !user ? 'auth' : !navigator.onLine ? 'offline' : pending ? 'syncing' : 'saved';
+    $('#sync').dataset.state = state;
+    $('#sync-text').textContent = { auth: 'Вход', offline: 'Нет сети', syncing: 'Сохраняю…', saved: 'Онлайн' }[state];
+  }
+  window.addEventListener('online', renderHeader);
+  window.addEventListener('offline', renderHeader);
+
   // ---------- Экран ----------
   function render() {
     const app = $('#app');
-    $('#shift').textContent = user ? shiftTitle(shift) : '';
     if (!user) { renderLogin(app); return; }
     const working = machines.filter((m) => m.on);
     app.innerHTML = `
@@ -367,11 +391,12 @@
   setInterval(() => {
     const s = shiftOf();
     if (s.id !== shift.id) { shift = s; entries = []; subscribe(); render(); }
+    renderHeader(); // раз в полминуты — «сколько осталось»
   }, 30000);
 
-  // На телефоне владельца ссылка на эту страницу открывается внутри приложения «Табель смены» — нужен путь назад.
-  // Данные табеля есть в localStorage только там, где открывали само приложение (тот же адрес сайта); у работников кнопки нет.
-  try { if (localStorage.getItem('ts.data')) $('#back').hidden = false; } catch { /* без localStorage — без кнопки */ }
+  // Новое устройство мастера: приложение «Табель смены» чужим устройствам закрыто (index.html отправляет сюда).
+  // Пять нажатий подряд на номер версии внизу — вход для мастера (адрес с ?owner).
+  { let taps = 0; let t0 = 0; $('#ver').addEventListener('click', () => { const n = Date.now(); taps = n - t0 < 2000 ? taps + 1 : 1; t0 = n; if (taps >= 5) location.href = '../?owner'; }); }
 
   load().then(() => {
     fb.auth.onAuthStateChanged(fb.au, (u) => {
@@ -379,9 +404,11 @@
       error = '';
       shift = shiftOf();
       subscribe();
+      renderHeader();
       render();
     });
   }).catch((e) => { error = explain(e); render(); });
+  renderHeader();
   render();
 
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});

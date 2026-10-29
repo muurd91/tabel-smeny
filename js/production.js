@@ -126,7 +126,8 @@ const Production = (() => {
           <div class="prod__sum prod__sum--total"><span>Всего</span><b>${totalText(entries)}</b></div></div>
         <details class="prod__more"><summary>Записи (${entries.length})</summary>
           <ul class="prod__list">${entries.map((e) => `<li><span class="prod__time">${hhmm(new Date(e.at))}</span><span class="grow">${e.machine ? `${esc(e.machine)} · ` : ''}${esc(nameOf(e))}</span><b>${num(e.qty)} ${unitOf(e)}</b><button class="btn btn--icon" data-prod-del="${esc(e.id)}" type="button" aria-label="Удалить запись">${ICON.x}</button></li>`).join('')}</ul></details>`;
-    return `${machinesHtml()}<div class="card prod"><h2>Сдано за смену</h2><p class="small muted">${esc(head)} · вносят на странице для работников</p>${body}</div>`;
+    return `${machinesHtml()}<div class="card prod"><h2>Сдано за смену</h2><p class="small muted">${esc(head)} · вносят на странице для работников</p>${body}
+      <a class="btn btn--block mt-12" href="work/">Страница продукции →</a></div>`;
   }
 
   // Карточка в «Настройках»: список видов продукции
