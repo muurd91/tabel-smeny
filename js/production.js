@@ -27,6 +27,7 @@ const Production = (() => {
   let colors = [];
   const DEFAULT_MACHINES = ['Ф1', 'Ф2', 'Ф3', 'Ф4', 'Ф5', 'Ф6', 'К1', 'К2', 'К3'];
   let machines = []; // { name, on, product } — владелец отмечает, какие станки работают и что на них выпускают
+  let docSchedule = null; // график смен, как он записан в облаке (его читает страница работников)
   let unsubs = [];
   let active = false;
 
@@ -35,6 +36,16 @@ const Production = (() => {
     unsubs = [];
     active = false;
     entries = [];
+  }
+
+  // График бригады (дата отсчёта и цикл) — в общий документ настроек: страница работников по нему понимает, когда у нас смена,
+  // и пишет в шапке «До начала» / «Осталось», а не по одному времени суток. Не секрет: сами люди и табель туда не попадают.
+  function syncSchedule() {
+    const api = Cloud.api();
+    const { anchor, cycle } = DB.data.settings;
+    if (!api || !anchor || !cycle || (docSchedule?.anchor === anchor && docSchedule?.cycle === cycle)) return;
+    docSchedule = { anchor, cycle }; // не повторять запись, пока не придёт ответ
+    api.fs.setDoc(api.fs.doc(api.db, 'settings', 'production'), { schedule: { anchor, cycle } }, { merge: true }).catch(() => { docSchedule = null; });
   }
 
   const refresh = () => { if (UI.view === 'shift' || UI.view === 'more') render(); };
@@ -58,6 +69,8 @@ const Production = (() => {
       const d = snap.exists() ? snap.data() : {};
       products = Array.isArray(d.products) ? d.products.map(String) : [];
       colors = Array.isArray(d.colors) ? d.colors.map(String) : [];
+      docSchedule = d.schedule || null;
+      syncSchedule();
       machines = Array.isArray(d.machines) ? d.machines.filter((m) => m && m.name).map((m) => ({ name: String(m.name), on: !!m.on, product: String(m.product || '') })) : [];
       refresh();
     }, () => {}));
@@ -139,7 +152,8 @@ const Production = (() => {
       <button class="btn btn--primary btn--block" data-act="prod-save" type="button">Сохранить списки</button>`;
   }
 
-  Cloud.onChange(() => { ensure(); });
+  Cloud.onChange(() => { if (ensure()) syncSchedule(); });
+  DB.onChange(() => { if (active) syncSchedule(); }); // поменяли график в «Настройках» — страница работников узнает
   document.addEventListener('visibilitychange', () => { if (!document.hidden && active) ensure(); });
 
   return { cardHtml, settingsHtml, saveLists, remove, shiftOf };

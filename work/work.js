@@ -16,6 +16,7 @@
   const pad = (n) => String(n).padStart(2, '0');
   const isoDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const hhmm = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const hm = (d) => `${d.getHours()}:${pad(d.getMinutes())}`; // в шапке без нуля впереди, как в приложении: 7:30
   const num = (n) => String(n).replace('.', ',');
   const lsGet = (k) => { try { return localStorage.getItem(k) || ''; } catch { return ''; } };
   const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* без localStorage — не запоминаем */ } };
@@ -79,6 +80,7 @@
   let products = [];
   let colors = [];
   let machines = []; // { name, on, product } — отмечает владелец в приложении
+  let schedule = null; // график бригады { anchor, cycle } — приложение владельца кладёт его рядом со списками
   let unsubs = [];
   let lastUnit = 'коробок'; // единица, выбранная в прошлый раз
   const creds = { name: '', pass: '' }; // логин и пароль переживают перерисовку (после ошибки не стираются)
@@ -107,7 +109,9 @@
       const d = snap.exists() ? snap.data() : {};
       products = Array.isArray(d.products) ? d.products.map(String).filter(Boolean) : [];
       colors = Array.isArray(d.colors) ? d.colors.map(String).filter(Boolean) : [];
+      schedule = d.schedule?.anchor && d.schedule?.cycle ? { anchor: String(d.schedule.anchor), cycle: String(d.schedule.cycle) } : null;
       machines = Array.isArray(d.machines) ? d.machines.filter((m) => m && m.name).map((m) => ({ name: String(m.name), on: !!m.on, product: String(m.product || '') })) : [];
+      renderHeader();
       render();
     }, () => { /* настроек нет — станков в списке не будет, сдать можно вручную */ }));
   }
@@ -250,16 +254,39 @@
   window.addEventListener('resize', () => placeThumb(false));
 
   // ---------- Шапка (как в приложении «Табель смены») ----------
+  // Тип смены бригады в этот день по графику: Д, Н, В; графика ещё нет — null
+  function crewType(day) {
+    if (!schedule) return null;
+    const n = schedule.cycle.length;
+    const dn = (d) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5;
+    const [y, m, dd] = schedule.anchor.split('-').map(Number);
+    return schedule.cycle[(((dn(day) - Date.UTC(y, m - 1, dd) / 864e5) % n) + n) % n];
+  }
+  // Как в приложении: смотрим на смену НАШЕЙ бригады в текущий день смены (до 7:30 — ещё вчерашний) — до начала, идёт или закончилась
   function renderHeader() {
     const now = new Date();
-    const s = shiftOf(now);
-    const pct = Math.min(100, Math.max(0, (now - s.start) / (s.end - s.start) * 100));
+    const cur = shiftOf(now); // день смены по времени суток
+    const day = new Date(cur.start); day.setHours(0, 0, 0, 0);
+    const t = crewType(day) || (cur.night ? 'Н' : 'Д'); // графика нет — как по времени суток
+    const title = `${{ Д: 'Дневная', Н: 'Ночная' }[t] || 'Выходной'} · ${WD[day.getDay()]}, ${day.getDate()} ${MONTHS_GEN[day.getMonth()]}`;
+    let main = 'Выходной по графику';
+    let sub = '';
+    let pct = null;
+    if (t !== 'В') {
+      const start = new Date(day); start.setHours(t === 'Н' ? 19 : 7, 30, 0, 0);
+      const end = new Date(start.getTime() + 12 * 3600e3);
+      const span = `${hm(start)}–${hm(end)}`;
+      if (now < start) { main = start - now < 864e5 ? `До начала ${durText(start - now)}` : 'Смена впереди'; sub = span; pct = 0; }
+      else if (now < end) { main = `Осталось ${durText(end - now)}`; sub = `до ${hm(end)}`; pct = (now - start) / (end - start) * 100; }
+      else { main = 'Смена закончилась'; sub = span; pct = 100; }
+    }
     $('#shiftbar').innerHTML = `
-      <div class="shiftbar__date"><span class="shiftbar__title">${s.night ? 'Ночная' : 'Дневная'} · ${WD[s.start.getDay()]}, ${s.start.getDate()} ${MONTHS_GEN[s.start.getMonth()]}</span></div>
-      <div class="shiftbar__status"><b>Осталось ${durText(s.end - now)}</b><span>до ${s.night ? '7:30' : '19:30'}</span></div>
-      <div class="shiftbar__track" role="progressbar" aria-label="Ход смены" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><div class="shiftbar__fill"></div></div>
+      <div class="shiftbar__date"><span class="shiftbar__title">${title}</span></div>
+      <div class="shiftbar__status"><b>${main}</b>${sub ? `<span>${sub}</span>` : ''}</div>
+      ${pct === null ? '' : `<div class="shiftbar__track" role="progressbar" aria-label="Ход смены" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><div class="shiftbar__fill${pct >= 100 ? ' is-done' : ''}"></div></div>`}
       ${ownerDevice ? '<a class="shiftbar__back" href="../">← Табель смены</a>' : ''}`;
-    $('.shiftbar__fill').style.width = `${pct}%`;
+    const fill = $('.shiftbar__fill');
+    if (fill) fill.style.width = `${pct}%`;
     const state = !user ? 'auth' : !navigator.onLine ? 'offline' : pending ? 'syncing' : 'saved';
     $('#sync').dataset.state = state;
     $('#sync-text').textContent = { auth: 'Вход', offline: 'Нет сети', syncing: 'Сохраняю…', saved: 'Онлайн' }[state];
