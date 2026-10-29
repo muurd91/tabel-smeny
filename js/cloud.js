@@ -294,6 +294,8 @@ const Cloud = (() => {
     state,
     info,
     onChange: (fn) => listeners.push(fn),
+    // Firestore для других модулей (js/production.js): только пока выполнен вход
+    api: () => (fb && user ? { fs: fb.fs, db: fb.db } : null),
   };
 })();
 

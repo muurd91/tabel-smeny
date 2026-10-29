@@ -104,7 +104,7 @@ function renderShift() {
   const people = DB.data.people.filter((p) => !p.archived);
 
   // Дата, тип смены и ход времени — в шапке (renderShiftbar)
-  let html = Reports.banner();
+  let html = Reports.banner() + Production.cardHtml();
 
   if (!people.length) {
     html += `<div class="card empty"><b>Пока никого нет</b>Загрузите прошлый табель — подтянутся люди и отметки.
@@ -435,6 +435,11 @@ $('#view-shift').addEventListener('click', (e) => {
   if (go2) { UI.date = go2; UI.qf.from = UI.qf.until = undefined; render(); window.scrollTo(0, 0); return; }
   const qr = e.target.closest('[data-qr]')?.dataset.qr;
   if (qr) { UI.qf.reason = qr; UI.qf.text = ''; UI.qf.hours = undefined; render(); return; }
+  const prodDel = e.target.closest('[data-prod-del]')?.dataset.prodDel;
+  if (prodDel) {
+    if (confirm('Удалить эту запись о сданной продукции?')) Production.remove(prodDel).catch((err) => toast(err.message || 'Не удалилось'));
+    return;
+  }
   const unsticker = e.target.closest('[data-unsticker]')?.dataset.unsticker;
   if (unsticker) {
     const p = DB.data.people.find((x) => x.id === unsticker);
@@ -1121,6 +1126,8 @@ function renderMore() {
 
     <div class="card"><h2>Почта</h2>${mailCard()}</div>
 
+    <div class="card"><h2>Продукция смены</h2>${Production.settingsHtml()}</div>
+
     <div class="card"><h2>График смены</h2>
       <label class="field"><span class="field__label">Название</span><input class="input" id="st-name" value="${esc(s.shiftName)}"></label>
       <label class="field"><span class="field__label">Первый день цикла (первая дневная смена)</span><input class="input" id="st-anchor" type="date" value="${esc(s.anchor)}"></label>
@@ -1388,6 +1395,12 @@ $('#view-more').addEventListener('click', async (e) => {
     const sign = $('#mail-sign').value.trim();
     DB.update((d) => { d.settings.mail = { ...d.settings.mail, to: to.join(', '), sign }; });
     toast(to.length ? `Сохранено адресов: ${to.length}` : 'Адреса очищены — письма не отправляются');
+  }
+  if (act === 'prod-save') {
+    const list = [...new Set($('#prod-list').value.split('\n').map((x) => x.trim()).filter(Boolean))];
+    Production.saveProducts(list)
+      .then(() => toast(list.length ? `Сохранено видов: ${list.length}` : 'Список очищен — работники вводят вид текстом'))
+      .catch((e) => toast(e.message || 'Не сохранилось'));
   }
   if (act === 'signin') Cloud.signInGoogle();
   else if (act === 'signin-email') signInEmailSheet();
