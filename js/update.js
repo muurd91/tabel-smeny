@@ -1,5 +1,5 @@
 // ================= «Доступно обновление» =================
-// Пока приложение открыто, раз в 10 минут и при возврате в него смотрим, не вышла ли на сайте версия новее запущенной
+// Пока приложение открыто, раз в минуту и при возврате в него смотрим, не вышла ли на сайте версия новее запущенной
 // (номер — meta app-version в index.html, его поднимает tools/bump.sh). Если вышла — окно с кнопкой «Обновить».
 // Так на телефоне не остаётся старая копия, о которой никто не знает. Без сети проверка тихо пропускается.
 
@@ -34,16 +34,16 @@
   }
 
   async function check() {
-    if (shown || Date.now() - lastCheck < 60e3) return;
+    if (shown || Date.now() - lastCheck < 30e3) return;
     lastCheck = Date.now();
     try {
-      const res = await fetch(`index.html?check=${Date.now()}`, { cache: 'no-store' });
+      const res = await fetch(`index.html?check=${Date.now()}`, { cache: 'no-store', headers: { Range: 'bytes=0-1023' } } /* номер версии — в самом начале страницы */);
       const v = ((await res.text()).match(/name="app-version" content="([^"]+)"/) || [])[1];
       if (v && v !== RUNNING) show(v);
     } catch { /* нет сети — проверим позже */ }
   }
 
   document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
-  setInterval(check, 10 * 60e3);
+  setInterval(check, 60e3);
   setTimeout(check, 8000);
 })();
