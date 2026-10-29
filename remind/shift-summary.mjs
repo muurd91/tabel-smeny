@@ -66,6 +66,16 @@ if (MODE !== 'test' && (await logRef.get()).data()?.[logKey]) { console.log(`${l
 // ---------- Сводка ----------
 const entries = (await db.collection('shipments').where('shift', '==', shiftId).get()).docs
   .map((d) => d.data()).sort((a, b) => String(a.at).localeCompare(String(b.at)));
+// Это смена нашей бригады по графику (Д/Н/В из настроек приложения)? Чужая смена без записей — итога нет:
+// иначе в 19:25 в ночную очередь пришло бы пустое «Записей нет» про дневную смену другой бригады.
+const cycle = settings.cycle || 'ДДННВВВВ';
+const anchor = settings.anchor || '2026-09-01';
+const dayNum = (s) => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d) / 864e5; };
+const mine = cycle[(((dayNum(isoOf(day)) - dayNum(anchor)) % cycle.length) + cycle.length) % cycle.length] === (night ? 'Н' : 'Д');
+if (MODE !== 'test' && !mine && !entries.length) {
+  console.log(`${shiftId}: пропуск — не наша смена по графику, записей нет`);
+  process.exit(0);
+}
 const hhmm = (iso) => { const t = new Date(new Date(iso).getTime() + Number(TZ_OFFSET) * 3600e3); return `${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}`; };
 const num = (n) => String(n).replace('.', ',');
 const nameOf = (e) => (e.color ? `${e.product}, ${e.color}` : e.product);
