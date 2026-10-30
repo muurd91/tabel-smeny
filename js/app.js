@@ -435,8 +435,6 @@ $('#view-shift').addEventListener('click', (e) => {
   if (go2) { UI.date = go2; UI.qf.from = UI.qf.until = undefined; render(); window.scrollTo(0, 0); return; }
   const qr = e.target.closest('[data-qr]')?.dataset.qr;
   if (qr) { UI.qf.reason = qr; UI.qf.text = ''; UI.qf.hours = undefined; render(); return; }
-  const prodEdit = e.target.closest('[data-prod-edit]')?.dataset.prodEdit;
-  if (prodEdit) { Production.openEditor(prodEdit); return; }
   const prodDel = e.target.closest('[data-prod-del]')?.dataset.prodDel;
   if (prodDel) {
     if (confirm('Удалить эту запись о сданной продукции?')) Production.remove(prodDel).catch((err) => toast(err.message || 'Не удалилось'));
@@ -1377,6 +1375,8 @@ $('#view-more').addEventListener('change', (e) => {
 });
 
 $('#view-more').addEventListener('click', async (e) => {
+  const prodEdit = e.target.closest('[data-prod-edit]')?.dataset.prodEdit;
+  if (prodEdit) { Production.openEditor(prodEdit); return; }
   const act = e.target.closest('[data-act]')?.dataset.act;
   if (act === 'tg-setup') telegramSetup();
   else if (act === 'tg-full') telegramFull();
