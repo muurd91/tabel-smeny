@@ -2,7 +2,7 @@
 // Кэшируются файлы приложения и библиотеки Firebase (gstatic.com); данные — в localStorage и Firestore.
 // При любом изменении файлов приложения — tools/bump.sh: он поднимает VERSION здесь и ?v= в index.html
 // (иначе телефон будет держать старую копию, а новая страница может получить старые скрипты).
-const VERSION = '73';
+const VERSION = '74';
 const CACHE = `ts-shell-v${VERSION}`;
 
 // Скрипты и стили — с ?v=VERSION, ровно как их запрашивает index.html.
