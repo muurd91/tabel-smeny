@@ -168,23 +168,59 @@ const Production = (() => {
       <a class="btn btn--block mt-12" href="work/">Страница продукции →</a></div>`;
   }
 
-  // Карточка в «Настройках»: список видов продукции
+  // Карточка в «Настройках»: три кнопки — виды продукции, цвета, горшков в коробках; каждая открывает окно для ввода
   function settingsHtml() {
-    if (!ensure()) return '<p class="small muted">Список видов продукции для работников правится после входа в облако под аккаунтом владельца.</p>';
-    return `<p class="small muted">Работники выбирают из этих списков (есть и «Другое…» со свободным текстом). По одному названию в строке. Итоги считаются по точному названию.</p>
-      <label class="field"><span class="field__label">Виды продукции</span><textarea class="input" id="prod-list" rows="6" placeholder="например:&#10;Грунт 5 л&#10;Торф 20 л">${esc(products.join('\n'))}</textarea></label>
-      <label class="field"><span class="field__label">Цвета</span><textarea class="input" id="prod-colors" rows="4" placeholder="например:&#10;чёрный&#10;белый">${esc(colors.join('\n'))}</textarea></label>
-      <div class="field__label">Горшков в коробке</div>
-      ${products.length
-    ? `<div class="pots">${products.map((p) => `<label class="pots__row"><span>${esc(p)}</span><input class="input pots__in" data-pots="${esc(p)}" inputmode="numeric" placeholder="—" value="${perBox[p] || ''}" aria-label="Горшков в коробке: ${esc(p)}"></label>`).join('')}</div>
-       <p class="small muted">Если число задано, коробки в записях пересчитываются в горшки. Новые виды появятся здесь после сохранения списка.</p>`
-    : '<p class="small muted">Сначала сохраните список видов продукции — тогда здесь появится строка на каждый вид.</p>'}
-      <button class="btn btn--primary btn--block" data-act="prod-save" type="button">Сохранить списки</button>`;
+    if (!ensure()) return '<p class="small muted">Списки для работников правятся после входа в облако под аккаунтом владельца.</p>';
+    const withPots = products.filter((p) => perBox[p]).length;
+    const btn = (kind, title, count) => `<button class="btn btn--block prodset" data-prod-edit="${kind}" type="button"><span>${title}</span><span class="prodset__n">${count}</span></button>`;
+    return `<p class="small muted">Работники выбирают из этих списков при сдаче продукции.</p>
+      ${btn('products', 'Виды продукции', products.length)}
+      ${btn('colors', 'Цвета', colors.length)}
+      ${btn('pots', 'Горшков в коробках', products.length ? `${withPots} из ${products.length}` : '—')}`;
   }
+
+  // Окно ввода: kind = products | colors | pots
+  const lines = (text) => [...new Set(text.split('\n').map((x) => x.trim()).filter(Boolean))];
+  function openEditor(kind) {
+    if (!ensure()) return;
+    const actions = '<div class="sheet__actions sheet__actions--sticky"><button class="btn" value="cancel">Отмена</button><button class="btn btn--primary" data-save type="button">Сохранить</button></div>';
+    const done = (promise, msg) => promise.then(() => { sheet.close(); toast(msg); }).catch((e) => toast(e.message || 'Не сохранилось'));
+    if (kind === 'products') {
+      openSheet(`<h3>Виды продукции</h3><p class="sheet__sub">По одному названию в строке. Итоги считаются по точному названию.</p>
+        <label class="field"><textarea class="input" id="pe-text" rows="12" placeholder="например:&#10;Горшок 5 л&#10;Лоток 20 см">${esc(products.join('\n'))}</textarea></label>${actions}`, (b) => {
+        b.onclick = (e) => {
+          if (!e.target.closest('[data-save]')) return;
+          const list = lines($('#pe-text', b).value);
+          done(saveLists(list, colors, pots().filter((p) => list.includes(p.name))), `Сохранено видов продукции: ${list.length}`);
+        };
+      });
+    } else if (kind === 'colors') {
+      openSheet(`<h3>Цвета</h3><p class="sheet__sub">По одному цвету в строке. Работники выбирают из списка; «Другой…» всегда есть.</p>
+        <label class="field"><textarea class="input" id="pe-text" rows="8" placeholder="например:&#10;чёрный&#10;белый">${esc(colors.join('\n'))}</textarea></label>${actions}`, (b) => {
+        b.onclick = (e) => {
+          if (!e.target.closest('[data-save]')) return;
+          const list = lines($('#pe-text', b).value);
+          done(saveLists(products, list, pots()), `Сохранено цветов: ${list.length}`);
+        };
+      });
+    } else {
+      openSheet(`<h3>Горшков в коробках</h3>
+        <p class="sheet__sub">${products.length ? 'Сколько горшков в одной коробке. Если число задано, коробки в записях пересчитываются в горшки; пустое поле — без пересчёта.' : 'Сначала добавьте виды продукции — тогда здесь появится строка на каждый вид.'}</p>
+        <div class="pots">${products.map((p) => `<label class="pots__row"><span>${esc(p)}</span><input class="input pots__in" data-pots="${esc(p)}" inputmode="numeric" placeholder="—" value="${perBox[p] || ''}" aria-label="Горшков в коробке: ${esc(p)}"></label>`).join('')}</div>
+        ${products.length ? actions : '<div class="sheet__actions"><button class="btn" value="cancel">Закрыть</button></div>'}`, (b) => {
+        b.onclick = (e) => {
+          if (!e.target.closest('[data-save]')) return;
+          const list = [...b.querySelectorAll('[data-pots]')].map((i) => ({ name: i.dataset.pots, n: Number(i.value.replace(',', '.')) })).filter((p) => p.n > 0);
+          done(saveLists(products, colors, list), `Сохранено: горшков указано для ${list.length} из ${products.length}`);
+        };
+      });
+    }
+  }
+  const pots = () => Object.entries(perBox).map(([name, n]) => ({ name, n }));
 
   Cloud.onChange(() => { if (ensure()) syncSchedule(); });
   DB.onChange(() => { if (active) syncSchedule(); }); // поменяли график в «Настройках» — страница работников узнает
   document.addEventListener('visibilitychange', () => { if (!document.hidden && active) ensure(); });
 
-  return { cardHtml, settingsHtml, saveLists, remove, shiftOf };
+  return { cardHtml, settingsHtml, openEditor, saveLists, remove, shiftOf };
 })();

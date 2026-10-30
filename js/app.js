@@ -435,6 +435,8 @@ $('#view-shift').addEventListener('click', (e) => {
   if (go2) { UI.date = go2; UI.qf.from = UI.qf.until = undefined; render(); window.scrollTo(0, 0); return; }
   const qr = e.target.closest('[data-qr]')?.dataset.qr;
   if (qr) { UI.qf.reason = qr; UI.qf.text = ''; UI.qf.hours = undefined; render(); return; }
+  const prodEdit = e.target.closest('[data-prod-edit]')?.dataset.prodEdit;
+  if (prodEdit) { Production.openEditor(prodEdit); return; }
   const prodDel = e.target.closest('[data-prod-del]')?.dataset.prodDel;
   if (prodDel) {
     if (confirm('Удалить эту запись о сданной продукции?')) Production.remove(prodDel).catch((err) => toast(err.message || 'Не удалилось'));
@@ -1395,15 +1397,6 @@ $('#view-more').addEventListener('click', async (e) => {
     const sign = $('#mail-sign').value.trim();
     DB.update((d) => { d.settings.mail = { ...d.settings.mail, to: to.join(', '), sign }; });
     toast(to.length ? `Сохранено адресов: ${to.length}` : 'Адреса очищены — письма не отправляются');
-  }
-  if (act === 'prod-save') {
-    const lines = (id) => [...new Set($(id).value.split('\n').map((x) => x.trim()).filter(Boolean))];
-    const list = lines('#prod-list');
-    const colorList = lines('#prod-colors');
-    const pots = [...document.querySelectorAll('[data-pots]')].map((i) => ({ name: i.dataset.pots, n: Number(i.value.replace(',', '.')) })).filter((p) => p.n > 0 && list.includes(p.name));
-    Production.saveLists(list, colorList, pots)
-      .then(() => toast(`Сохранено: видов ${list.length}, цветов ${colorList.length}, с числом горшков ${pots.length}`))
-      .catch((e) => toast(e.message || 'Не сохранилось'));
   }
   if (act === 'signin') Cloud.signInGoogle();
   else if (act === 'signin-email') signInEmailSheet();
