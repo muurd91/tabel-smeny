@@ -35,6 +35,20 @@ const Production = (() => {
     const rest = list.filter((e) => unitOf(e) === 'коробок' && !potsOf(e)).reduce((s, e) => s + e.qty, 0);
     return `${num(Math.round(pots * 100) / 100)} горшков${rest ? ` + ${num(rest)} коробок без пересчёта` : ''}`;
   };
+  // Итоги рядами в 2 строки: вид продукции над цветом, количество над горшками; внизу «Всего»
+  const sumsHtml = (list) => {
+    const groups = new Map();
+    for (const e of list) {
+      const sub = [e.color, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', ');
+      const k = `${e.product}|${sub}`;
+      if (!groups.has(k)) groups.set(k, { product: e.product, sub, items: [] });
+      groups.get(k).items.push(e);
+    }
+    const row = (top, sub, qty, pots, cls = '') => `<div class="sumrow${cls}"><div class="rec__col"><span class="sumrow__top">${top}</span><span class="rec__sub">${sub || '&nbsp;'}</span></div><div class="rec__col rec__q"><b>${qty}</b><span class="rec__sub">${pots || '&nbsp;'}</span></div></div>`;
+    const potsText = (items) => (items.some(potsOf) ? `${num(Math.round(items.reduce((s, e) => s + (unitOf(e) === 'штук' ? e.qty : potsOf(e)), 0) * 100) / 100)} горшков` : '');
+    return [...groups.values()].map((g) => row(esc(g.product || '—'), esc(g.sub), totalText(g.items), potsText(g.items))).join('')
+      + row('Всего', '', totalText(list), potsLine(list), ' sumrow--total');
+  };
   let shiftId = '';
   let entries = [];
   let products = [];
@@ -144,14 +158,10 @@ const Production = (() => {
   function cardHtml() {
     if (!ensure()) return '';
     const s = shiftOf();
-    const sums = new Map();
-    const nameOf = (e) => [e.product, e.color, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', ');
-    for (const e of entries) { const k = `${nameOf(e)}|${unitOf(e)}`; const s0 = sums.get(k) || { q: 0, p: 0 }; sums.set(k, { q: s0.q + e.qty, p: s0.p + potsOf(e) }); }
     const head = `${s.night ? 'Ночная' : 'Дневная'} смена · ${pad(s.day.getDate())}.${pad(s.day.getMonth() + 1)}`;
     const body = !entries.length
       ? '<p class="small muted">Пока ничего не записано.</p>'
-      : `<div class="prod__sums">${[...sums].map(([k, { q, p: pots }]) => { const [p, u] = k.split('|'); return `<div class="prod__sum"><span>${esc(p)}</span><b>${num(q)} ${u}${pots ? ` · ${num(Math.round(pots * 100) / 100)} горшков` : ''}</b></div>`; }).join('')}
-          <div class="prod__sum prod__sum--total"><span>Всего</span><b>${totalText(entries)}</b></div>${potsLine(entries) ? `<div class="prod__sum prod__sum--total"><span>Горшков</span><b>${potsLine(entries)}</b></div>` : ''}</div>
+      : `<div class="sums">${sumsHtml(entries)}</div>
         <details class="prod__more"><summary>Записи (${entries.length})</summary>
           <ul class="prod__list">${entries.map((e) => `<li class="rec">${rowText(e)}<button class="btn btn--icon" data-prod-del="${esc(e.id)}" type="button" aria-label="Удалить запись">${ICON.x}</button></li>`).join('')}</ul></details>`;
     return `${machinesHtml()}<div class="card prod"><h2>Сдано за смену</h2><p class="small muted">${esc(head)} · вносят на странице для работников</p>${body}

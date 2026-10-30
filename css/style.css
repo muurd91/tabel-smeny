@@ -418,9 +418,6 @@ label.shiftbar__date { cursor: pointer; }
 .c--split small { font-size: 10px; font-weight: 500; color: var(--text); margin-top: 2px; }
 
 /* ---------- Сданная продукция на «Смене» ---------- */
-.prod__sum { display: flex; justify-content: space-between; padding: 3px 0; }
-.prod__sum b { font-variant-numeric: tabular-nums; }
-.prod__sum--total { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 6px; font-weight: 700; }
 .prod__more { margin-top: 8px; }
 .prod__more summary { cursor: pointer; color: var(--muted); padding: 4px 0; }
 .prod__list { list-style: none; margin: 4px 0 0; padding: 0; }
@@ -447,4 +444,13 @@ label.shiftbar__date { cursor: pointer; }
 .pots__row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .pots__row span { flex: 1; min-width: 0; }
 .pots__in { flex: none; width: 92px; text-align: center; }
-.prod__sum b { text-align: right; }
+
+/* ---------- Итоги смены: ряды в 2 строки (вид над цветом, количество над горшками), между рядами линия ---------- */
+.sums { margin-top: 6px; }
+.sumrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.sumrow .rec__sub { min-height: 1.35em; }
+.sumrow__top { font-weight: 600; overflow-wrap: anywhere; }
+.sumrow--total { border-bottom: 0; border-top: 2px solid var(--border); margin-top: 2px; padding-top: 11px; }
+.sumrow--total .sumrow__top { font-size: 17px; font-weight: 700; }
+.sumrow--total .rec__q { white-space: normal; max-width: 62vw; }
+.sumrow .rec__q b { font-size: 16px; }

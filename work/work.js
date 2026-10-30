@@ -96,7 +96,6 @@
     return `${num(Math.round(pots * 100) / 100)} горшков${rest ? ` + ${num(rest)} коробок без пересчёта` : ''}`;
   };
   const totalText = (list) => ['коробок', 'штук'].map((u) => [u, list.filter((e) => unitOf(e) === u).reduce((s, e) => s + e.qty, 0)]).filter(([, q]) => q).map(([u, q]) => `${num(q)} ${u}`).join(', ') || '0';
-  const nameOf = (e) => [e.product, e.color, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', ');
   // Когда запись добавлена: createdAt = null — ещё не дошла до сервера (самая свежая); у старых записей поля нет — берём время отвоза
   const addedAt = (e) => (e.createdAt?.toMillis ? e.createdAt.toMillis() : 'createdAt' in e ? Infinity : Date.parse(e.at));
   // Запись списка тремя столбцами: станок над временем, вид продукции над цветом, количество по центру
@@ -281,6 +280,20 @@
   }
   window.addEventListener('resize', () => placeThumb(false));
 
+  // Итоги рядами в 2 строки: вид продукции над цветом, количество над горшками; внизу «Всего»
+  const sumsHtml = (list) => {
+    const groups = new Map();
+    for (const e of list) {
+      const sub = [e.color, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', ');
+      const k = `${e.product}|${sub}`;
+      if (!groups.has(k)) groups.set(k, { product: e.product, sub, items: [] });
+      groups.get(k).items.push(e);
+    }
+    const row = (top, sub, qty, pots, cls = '') => `<div class="sumrow${cls}"><div class="rec__col"><span class="sumrow__top">${top}</span><span class="rec__sub">${sub || '&nbsp;'}</span></div><div class="rec__col rec__q"><b>${qty}</b><span class="rec__sub">${pots || '&nbsp;'}</span></div></div>`;
+    const potsText = (items) => (items.some(potsOf) ? `${num(Math.round(items.reduce((s, e) => s + (unitOf(e) === 'штук' ? e.qty : potsOf(e)), 0) * 100) / 100)} горшков` : '');
+    return [...groups.values()].map((g) => row(esc(g.product || '—'), esc(g.sub), totalText(g.items), potsText(g.items))).join('')
+      + row('Всего', '', totalText(list), potsLine(list), ' sumrow--total');
+  };
   // ---------- Шапка (как в приложении «Табель смены») ----------
   // Тип смены бригады в этот день по графику: Д, Н, В; графика ещё нет — null
   function crewType(day) {
@@ -343,13 +356,10 @@
 
   function listHtml() {
     if (!entries.length) return '<p class="muted">Пока ничего не записано.</p>';
-    const sums = new Map();
-    for (const e of entries) { const k = `${nameOf(e)}|${unitOf(e)}`; const s0 = sums.get(k) || { q: 0, p: 0 }; sums.set(k, { q: s0.q + e.qty, p: s0.p + potsOf(e) }); }
     return `<ul class="wlist">${entries.map((e) => `<li class="rec">
         ${rowText(e)}
         <button class="btn btn--icon" data-del="${esc(e.id)}" type="button" aria-label="Удалить запись">✕</button></li>`).join('')}</ul>
-      <div class="mt-12">${[...sums].map(([k, { q, p: pots }]) => { const [p, u] = k.split('|'); return `<div class="wsum"><span>${esc(p)}</span><b>${num(q)} ${u}${pots ? ` · ${num(Math.round(pots * 100) / 100)} горшков` : ''}</b></div>`; }).join('')}
-        <div class="wsum"><span><b>Всего</b></span><b>${totalText(entries)}</b></div>${potsLine(entries) ? `<div class="wsum"><span><b>Горшков</b></span><b>${potsLine(entries)}</b></div>` : ''}</div>`;
+      <div class="sums mt-12">${sumsHtml(entries)}</div>`;
   }
 
   function renderLogin(app) {
