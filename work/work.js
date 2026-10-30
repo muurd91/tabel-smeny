@@ -445,7 +445,9 @@
     try { for (const r of await navigator.serviceWorker.getRegistrations()) await r.update(); } catch { /* обновим и так */ }
     location.reload();
   });
-  $('#update-later').addEventListener('click', () => { $('#update').close(); setTimeout(() => { updateShown = false; checkUpdate(); }, 15 * 60e3); });
+  const updateLater = () => { $('#update').close(); setTimeout(() => { updateShown = false; checkUpdate(); }, 15 * 60e3); };
+  if (window.laterJoke) window.laterJoke($('#update-later'), updateLater); // шутка на кнопке «Позже» (js/sheet-drag.js)
+  else $('#update-later').addEventListener('click', updateLater);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
   setInterval(checkUpdate, 60e3);
   setTimeout(checkUpdate, 5000);

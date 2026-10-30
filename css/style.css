@@ -454,3 +454,4 @@ label.shiftbar__date { cursor: pointer; }
 .sumrow--total .sumrow__top { font-size: 17px; font-weight: 700; }
 .sumrow--total .rec__q { white-space: normal; max-width: 62vw; }
 .sumrow .rec__q b { font-size: 16px; }
+.sheet__joke { min-height: 1.4em; margin: 10px 0 -6px; font-weight: 600; text-align: center; }

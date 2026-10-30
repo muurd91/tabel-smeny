@@ -25,11 +25,13 @@
       try { for (const r of await navigator.serviceWorker.getRegistrations()) await r.update(); } catch { /* обновим и так */ }
       location.reload();
     };
-    dlg.querySelector('[data-later]').onclick = () => {
+    const later = () => {
       dlg.close();
       dlg.remove();
       setTimeout(() => { shown = false; check(); }, 30 * 60e3);
     };
+    if (window.laterJoke) window.laterJoke(dlg.querySelector('[data-later]'), later); // шутка на кнопке «Позже» (js/sheet-drag.js)
+    else dlg.querySelector('[data-later]').onclick = later;
     dlg.showModal();
   }
 

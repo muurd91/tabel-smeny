@@ -50,3 +50,28 @@
   document.addEventListener('pointerup', end);
   document.addEventListener('pointercancel', end);
 })();
+
+// Шутка на кнопке «Позже» в окне обновления: трижды «не пускает», на третий раз сдаётся (работника не запираем).
+// Использование: laterJoke(кнопка, функция «закрыть окно и напомнить позже»).
+window.laterJoke = (btn, giveUp) => {
+  const PHRASES = ['Позже нельзя, обновляй сейчас 😄', 'Серьёзно, это две секунды', 'Ладно, уговорил. Напомню позже'];
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  let n = 0;
+  btn.onclick = () => {
+    if (n >= PHRASES.length) return; // уже сдались, окно закрывается
+    let joke = btn.closest('.sheet__body').querySelector('.sheet__joke');
+    if (!joke) {
+      joke = document.createElement('p');
+      joke.className = 'sheet__joke';
+      joke.setAttribute('role', 'status');
+      btn.closest('.sheet__actions').before(joke);
+    }
+    joke.textContent = PHRASES[n++];
+    if (n < PHRASES.length) {
+      if (!reduce.matches) btn.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-7px)' }, { transform: 'translateX(7px)' }, { transform: 'translateX(-5px)' }, { transform: 'translateX(5px)' }, { transform: 'translateX(0)' }], { duration: 380, easing: 'ease-in-out' });
+      return;
+    }
+    btn.disabled = true;
+    setTimeout(() => { n = 0; btn.disabled = false; joke.textContent = ''; giveUp(); }, 1400);
+  };
+};
