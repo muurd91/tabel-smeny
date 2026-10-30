@@ -35,3 +35,4 @@ a.shiftbar__back { display: inline-flex; align-items: center; justify-content: c
   background: var(--brand); box-shadow: 0 2px 6px var(--shadow);
   will-change: left, width, transform;
 }
+.wpots { min-height: 1.3em; margin: 6px 0 0; }

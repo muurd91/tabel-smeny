@@ -11,7 +11,7 @@ const Production = (() => {
   // Когда запись добавлена: createdAt = null — ещё не дошла до сервера (самая свежая); у старых записей поля нет — берём время отвоза
   const addedAt = (e) => (e.createdAt?.toMillis ? e.createdAt.toMillis() : 'createdAt' in e ? Infinity : Date.parse(e.at));
   // Запись списка тремя столбцами: станок над временем, вид продукции над цветом, количество по центру
-  const rowText = (e) => `<div class="rec__col"><b>${e.machine ? esc(e.machine) : '—'}</b><span>${hhmm(new Date(e.at))}</span></div><div class="rec__col rec__col--p"><span>${esc(e.product || '—')}</span><span class="rec__sub">${esc([e.color, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', ') || ' ')}</span></div><b class="rec__q">${num(e.qty)} ${unitOf(e)}</b>`;
+  const rowText = (e) => `<div class="rec__col"><b>${e.machine ? esc(e.machine) : '—'}</b><span>${hhmm(new Date(e.at))}</span></div><div class="rec__col rec__col--p"><span>${esc(e.product || '—')}</span><span class="rec__sub">${esc([e.color, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', ') || ' ')}</span></div><div class="rec__col rec__q"><b>${num(e.qty)} ${unitOf(e)}</b>${potsOf(e) ? `<span class="rec__sub">${num(potsOf(e))} горшков</span>` : ''}</div>`;
   const num = (n) => String(n).replace('.', ',');
 
   // Смена по времени, как на странице работников: дневная 7:30–19:30, ночная 19:30–7:30 (до 7:30 — вчерашняя ночная)
@@ -25,6 +25,16 @@ const Production = (() => {
 
   const unitOf = (e) => (e.unit === 'штук' ? 'штук' : 'коробок'); // записи без единицы — коробки
   const totalText = (list) => ['коробок', 'штук'].map((u) => [u, list.filter((e) => unitOf(e) === u).reduce((s, e) => s + e.qty, 0)]).filter(([, q]) => q).map(([u, q]) => `${num(q)} ${u}`).join(', ') || '0';
+  let perBox = {}; // вид продукции → горшков в коробке
+  // Горшков в коробке по видам продукции (задаёт мастер в «Настройках»): записи в коробках пересчитываются в горшки
+  const potsOf = (e) => (unitOf(e) === 'коробок' && perBox[e.product] ? Math.round(e.qty * perBox[e.product] * 100) / 100 : 0);
+  // Всего горшков: пересчитанные коробки + штуки; коробки вида без числа горшков считаем отдельно
+  const potsLine = (list) => {
+    if (!list.some(potsOf)) return '';
+    const pots = list.reduce((s, e) => s + (unitOf(e) === 'штук' ? e.qty : potsOf(e)), 0);
+    const rest = list.filter((e) => unitOf(e) === 'коробок' && !potsOf(e)).reduce((s, e) => s + e.qty, 0);
+    return `${num(Math.round(pots * 100) / 100)} горшков${rest ? ` + ${num(rest)} коробок без пересчёта` : ''}`;
+  };
   let shiftId = '';
   let entries = [];
   let products = [];
@@ -73,6 +83,7 @@ const Production = (() => {
       const d = snap.exists() ? snap.data() : {};
       products = Array.isArray(d.products) ? d.products.map(String) : [];
       colors = Array.isArray(d.colors) ? d.colors.map(String) : [];
+      perBox = Object.fromEntries((Array.isArray(d.pots) ? d.pots : []).filter((p) => p && p.name && p.n > 0).map((p) => [String(p.name), Number(p.n)]));
       docSchedule = d.schedule || null;
       syncSchedule();
       machines = Array.isArray(d.machines) ? d.machines.filter((m) => m && m.name).map((m) => ({ name: String(m.name), on: !!m.on, product: String(m.product || '') })) : [];
@@ -81,11 +92,11 @@ const Production = (() => {
     return true;
   }
 
-  async function saveLists(list, colorList) {
+  async function saveLists(list, colorList, pots) {
     const api = Cloud.api();
     if (!api) throw new Error('Войдите в облако');
     // merge: в этом же документе лежит список станков — списки его не трогают
-    await api.fs.setDoc(api.fs.doc(api.db, 'settings', 'production'), { products: list, colors: colorList }, { merge: true });
+    await api.fs.setDoc(api.fs.doc(api.db, 'settings', 'production'), { products: list, colors: colorList, pots }, { merge: true });
   }
 
   // ---------- Станки: работает / не работает и что выпускает ----------
@@ -135,12 +146,12 @@ const Production = (() => {
     const s = shiftOf();
     const sums = new Map();
     const nameOf = (e) => [e.product, e.color, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', ');
-    for (const e of entries) { const k = `${nameOf(e)}|${unitOf(e)}`; sums.set(k, (sums.get(k) || 0) + e.qty); }
+    for (const e of entries) { const k = `${nameOf(e)}|${unitOf(e)}`; const s0 = sums.get(k) || { q: 0, p: 0 }; sums.set(k, { q: s0.q + e.qty, p: s0.p + potsOf(e) }); }
     const head = `${s.night ? 'Ночная' : 'Дневная'} смена · ${pad(s.day.getDate())}.${pad(s.day.getMonth() + 1)}`;
     const body = !entries.length
       ? '<p class="small muted">Пока ничего не записано.</p>'
-      : `<div class="prod__sums">${[...sums].map(([k, q]) => { const [p, u] = k.split('|'); return `<div class="prod__sum"><span>${esc(p)}</span><b>${num(q)} ${u}</b></div>`; }).join('')}
-          <div class="prod__sum prod__sum--total"><span>Всего</span><b>${totalText(entries)}</b></div></div>
+      : `<div class="prod__sums">${[...sums].map(([k, { q, p: pots }]) => { const [p, u] = k.split('|'); return `<div class="prod__sum"><span>${esc(p)}</span><b>${num(q)} ${u}${pots ? ` · ${num(Math.round(pots * 100) / 100)} горшков` : ''}</b></div>`; }).join('')}
+          <div class="prod__sum prod__sum--total"><span>Всего</span><b>${totalText(entries)}</b></div>${potsLine(entries) ? `<div class="prod__sum prod__sum--total"><span>Горшков</span><b>${potsLine(entries)}</b></div>` : ''}</div>
         <details class="prod__more"><summary>Записи (${entries.length})</summary>
           <ul class="prod__list">${entries.map((e) => `<li class="rec">${rowText(e)}<button class="btn btn--icon" data-prod-del="${esc(e.id)}" type="button" aria-label="Удалить запись">${ICON.x}</button></li>`).join('')}</ul></details>`;
     return `${machinesHtml()}<div class="card prod"><h2>Сдано за смену</h2><p class="small muted">${esc(head)} · вносят на странице для работников</p>${body}
@@ -153,6 +164,11 @@ const Production = (() => {
     return `<p class="small muted">Работники выбирают из этих списков (есть и «Другое…» со свободным текстом). По одному названию в строке. Итоги считаются по точному названию.</p>
       <label class="field"><span class="field__label">Виды продукции</span><textarea class="input" id="prod-list" rows="6" placeholder="например:&#10;Грунт 5 л&#10;Торф 20 л">${esc(products.join('\n'))}</textarea></label>
       <label class="field"><span class="field__label">Цвета</span><textarea class="input" id="prod-colors" rows="4" placeholder="например:&#10;чёрный&#10;белый">${esc(colors.join('\n'))}</textarea></label>
+      <div class="field__label">Горшков в коробке</div>
+      ${products.length
+    ? `<div class="pots">${products.map((p) => `<label class="pots__row"><span>${esc(p)}</span><input class="input pots__in" data-pots="${esc(p)}" inputmode="numeric" placeholder="—" value="${perBox[p] || ''}" aria-label="Горшков в коробке: ${esc(p)}"></label>`).join('')}</div>
+       <p class="small muted">Если число задано, коробки в записях пересчитываются в горшки. Новые виды появятся здесь после сохранения списка.</p>`
+    : '<p class="small muted">Сначала сохраните список видов продукции — тогда здесь появится строка на каждый вид.</p>'}
       <button class="btn btn--primary btn--block" data-act="prod-save" type="button">Сохранить списки</button>`;
   }
 

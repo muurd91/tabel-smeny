@@ -1400,8 +1400,9 @@ $('#view-more').addEventListener('click', async (e) => {
     const lines = (id) => [...new Set($(id).value.split('\n').map((x) => x.trim()).filter(Boolean))];
     const list = lines('#prod-list');
     const colorList = lines('#prod-colors');
-    Production.saveLists(list, colorList)
-      .then(() => toast(`Сохранено: видов ${list.length}, цветов ${colorList.length}`))
+    const pots = [...document.querySelectorAll('[data-pots]')].map((i) => ({ name: i.dataset.pots, n: Number(i.value.replace(',', '.')) })).filter((p) => p.n > 0 && list.includes(p.name));
+    Production.saveLists(list, colorList, pots)
+      .then(() => toast(`Сохранено: видов ${list.length}, цветов ${colorList.length}, с числом горшков ${pots.length}`))
       .catch((e) => toast(e.message || 'Не сохранилось'));
   }
   if (act === 'signin') Cloud.signInGoogle();

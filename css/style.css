@@ -443,4 +443,8 @@ label.shiftbar__date { cursor: pointer; }
 .rec__col { display: flex; flex-direction: column; min-width: 0; line-height: 1.35; }
 .rec__col > span { overflow-wrap: anywhere; }
 .rec__col:first-child > span, .rec__sub { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
-.rec__q { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+.rec__q { white-space: nowrap; align-items: flex-end; text-align: right; font-variant-numeric: tabular-nums; }
+.pots__row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.pots__row span { flex: 1; min-width: 0; }
+.pots__in { flex: none; width: 92px; text-align: center; }
+.prod__sum b { text-align: right; }

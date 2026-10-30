@@ -23,6 +23,7 @@ const owner = (fs.readFileSync(new URL('../js/config.js', import.meta.url), 'utf
 const tabelDoc = (await db.collectionGroup('apps').get()).docs.find((d) => d.id === 'tabel' && (!owner || d.ref.parent.parent?.id === owner));
 if (!tabelDoc) { console.log('::warning::В Firestore нет табеля владельца — итог смены не отправлен.'); process.exit(0); }
 const settings = JSON.parse(tabelDoc.get('json')).settings || {};
+const prodSettings = (await db.collection('settings').doc('production').get()).data() || {}; // горшков в коробке и т. п.
 const tg = settings.telegram || {};
 const TOKEN = tg.token;
 const CHAT = tg.meId; // только личный чат, никогда не группа
@@ -80,6 +81,16 @@ const hhmm = (iso) => { const t = new Date(new Date(iso).getTime() + Number(TZ_O
 const num = (n) => String(n).replace('.', ',');
 const unitOf = (e) => (e.unit === 'штук' ? 'штук' : 'коробок'); // записи без единицы — коробки
 const totalText = (list) => ['коробок', 'штук'].map((u) => [u, list.filter((e) => unitOf(e) === u).reduce((s, e) => s + e.qty, 0)]).filter(([, q]) => q).map(([u, q]) => `${num(q)} ${u}`).join(', ') || '0';
+const perBox = Object.fromEntries((Array.isArray(prodSettings.pots) ? prodSettings.pots : []).filter((p) => p && p.name && p.n > 0).map((p) => [String(p.name), Number(p.n)]));
+// Горшков в коробке по видам продукции (задаёт мастер в «Настройках»): записи в коробках пересчитываются в горшки
+const potsOf = (e) => (unitOf(e) === 'коробок' && perBox[e.product] ? Math.round(e.qty * perBox[e.product] * 100) / 100 : 0);
+// Всего горшков: пересчитанные коробки + штуки; коробки вида без числа горшков считаем отдельно
+const potsLine = (list) => {
+  if (!list.some(potsOf)) return '';
+  const pots = list.reduce((s, e) => s + (unitOf(e) === 'штук' ? e.qty : potsOf(e)), 0);
+  const rest = list.filter((e) => unitOf(e) === 'коробок' && !potsOf(e)).reduce((s, e) => s + e.qty, 0);
+  return `${num(Math.round(pots * 100) / 100)} горшков${rest ? ` + ${num(rest)} коробок без пересчёта` : ''}`;
+};
 const nameOf = (e) => [e.product, e.color, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', ');
 const title = `${night ? 'ночную' : 'дневную'} смену ${pad(day.getUTCDate())}.${pad(day.getUTCMonth() + 1)} (${night ? '19:30–7:30' : '7:30–19:30'})`;
 
@@ -87,11 +98,13 @@ const lines = [`📦 ${shiftName} — сдано за ${title}`];
 if (!entries.length) lines.push('', 'Записей нет — на странице для работников ничего не внесли.');
 else {
   const sums = new Map();
-  for (const e of entries) { const k = `${nameOf(e)}|${unitOf(e)}`; sums.set(k, (sums.get(k) || 0) + e.qty); }
+  for (const e of entries) { const k = `${nameOf(e)}|${unitOf(e)}`; const s0 = sums.get(k) || { q: 0, p: 0 }; sums.set(k, { q: s0.q + e.qty, p: s0.p + potsOf(e) }); }
   lines.push('');
-  for (const [k, q] of sums) { const [name, u] = k.split('|'); lines.push(`• ${name} — ${num(q)} ${u}`); }
-  lines.push('', `Всего: ${totalText(entries)}`, '', 'По времени отвоза:');
-  for (const e of entries) lines.push(`${hhmm(e.at)} — ${e.machine ? `${e.machine} · ` : ''}${nameOf(e)} — ${num(e.qty)} ${unitOf(e)}`);
+  for (const [k, { q, p }] of sums) { const [name, u] = k.split('|'); lines.push(`• ${name} — ${num(q)} ${u}${p ? ` (${num(Math.round(p * 100) / 100)} горшков)` : ''}`); }
+  lines.push('', `Всего: ${totalText(entries)}`);
+  if (potsLine(entries)) lines.push(`Горшков: ${potsLine(entries)}`);
+  lines.push('', 'По времени отвоза:');
+  for (const e of entries) lines.push(`${hhmm(e.at)} — ${e.machine ? `${e.machine} · ` : ''}${nameOf(e)} — ${num(e.qty)} ${unitOf(e)}${potsOf(e) ? ` (${num(potsOf(e))} горшков)` : ''}`);
 }
 let text = (MODE === 'test' ? '🧪 Проверка итога смены. ' : '') + lines.join('\n');
 if (text.length > 4000) text = `${text.slice(0, 3990)}\n…`;

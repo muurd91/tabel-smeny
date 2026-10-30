@@ -79,18 +79,28 @@
   let entries = [];
   let products = [];
   let colors = [];
+  let perBox = {}; // вид продукции → горшков в коробке (задаёт мастер)
   let machines = []; // { name, on, product } — отмечает владелец в приложении
   let schedule = null; // график бригады { anchor, cycle } — приложение владельца кладёт его рядом со списками
   let unsubs = [];
   let lastUnit = 'коробок'; // единица, выбранная в прошлый раз
   const creds = { name: '', pass: '' }; // логин и пароль переживают перерисовку (после ошибки не стираются)
   const unitOf = (e) => (e.unit === 'штук' ? 'штук' : 'коробок'); // записи без единицы — коробки
+  // Горшков в коробке по видам продукции (задаёт мастер в «Настройках»): записи в коробках пересчитываются в горшки
+  const potsOf = (e) => (unitOf(e) === 'коробок' && perBox[e.product] ? Math.round(e.qty * perBox[e.product] * 100) / 100 : 0);
+  // Всего горшков: пересчитанные коробки + штуки; коробки вида без числа горшков считаем отдельно
+  const potsLine = (list) => {
+    if (!list.some(potsOf)) return '';
+    const pots = list.reduce((s, e) => s + (unitOf(e) === 'штук' ? e.qty : potsOf(e)), 0);
+    const rest = list.filter((e) => unitOf(e) === 'коробок' && !potsOf(e)).reduce((s, e) => s + e.qty, 0);
+    return `${num(Math.round(pots * 100) / 100)} горшков${rest ? ` + ${num(rest)} коробок без пересчёта` : ''}`;
+  };
   const totalText = (list) => ['коробок', 'штук'].map((u) => [u, list.filter((e) => unitOf(e) === u).reduce((s, e) => s + e.qty, 0)]).filter(([, q]) => q).map(([u, q]) => `${num(q)} ${u}`).join(', ') || '0';
   const nameOf = (e) => [e.product, e.color, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', ');
   // Когда запись добавлена: createdAt = null — ещё не дошла до сервера (самая свежая); у старых записей поля нет — берём время отвоза
   const addedAt = (e) => (e.createdAt?.toMillis ? e.createdAt.toMillis() : 'createdAt' in e ? Infinity : Date.parse(e.at));
   // Запись списка тремя столбцами: станок над временем, вид продукции над цветом, количество по центру
-  const rowText = (e) => `<div class="rec__col"><b>${e.machine ? esc(e.machine) : '—'}</b><span>${hhmm(new Date(e.at))}</span></div><div class="rec__col rec__col--p"><span>${esc(e.product || '—')}</span><span class="rec__sub">${esc([e.color, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', ') || ' ')}</span></div><b class="rec__q">${num(e.qty)} ${unitOf(e)}</b>`;
+  const rowText = (e) => `<div class="rec__col"><b>${e.machine ? esc(e.machine) : '—'}</b><span>${hhmm(new Date(e.at))}</span></div><div class="rec__col rec__col--p"><span>${esc(e.product || '—')}</span><span class="rec__sub">${esc([e.color, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', ') || ' ')}</span></div><div class="rec__col rec__q"><b>${num(e.qty)} ${unitOf(e)}</b>${potsOf(e) ? `<span class="rec__sub">${num(potsOf(e))} горшков</span>` : ''}</div>`;
   let error = '';
   let loggingIn = false; // идёт вход
   let draft = null;      // открытое окно «Сдать продукцию»
@@ -113,6 +123,7 @@
       const d = snap.exists() ? snap.data() : {};
       products = Array.isArray(d.products) ? d.products.map(String).filter(Boolean) : [];
       colors = Array.isArray(d.colors) ? d.colors.map(String).filter(Boolean) : [];
+      perBox = Object.fromEntries((Array.isArray(d.pots) ? d.pots : []).filter((p) => p && p.name && p.n > 0).map((p) => [String(p.name), Number(p.n)]));
       schedule = d.schedule?.anchor && d.schedule?.cycle ? { anchor: String(d.schedule.anchor), cycle: String(d.schedule.cycle) } : null;
       machines = Array.isArray(d.machines) ? d.machines.filter((m) => m && m.name).map((m) => ({ name: String(m.name), on: !!m.on, product: String(m.product || '') })) : [];
       renderHeader();
@@ -173,7 +184,8 @@
         <div class="row row--nowrap">
           <input class="input wqty" id="s-qty" type="text" inputmode="decimal" value="${esc(d.qty)}" autocomplete="off" placeholder="0">
           <div class="seg wunit" role="tablist" aria-label="Единица"><span class="wthumb" aria-hidden="true"></span>${['коробок', 'штук'].map((u) => `<button class="seg__btn${d.unit === u ? ' is-on' : ''}" data-unit="${u}" role="tab" aria-selected="${d.unit === u}" type="button">${u}</button>`).join('')}</div>
-        </div></div>
+        </div>
+        <p class="small muted wpots" id="s-pots"></p></div>
       ${colorBlock}
       <div class="row row--nowrap wtimerow">
         <label class="field field--flush"><span class="field__label">Время отвоза</span>
@@ -184,6 +196,18 @@
       <p class="werr" id="s-err">${esc(d.err)}</p>
       <div class="sheet__actions"><button class="btn" value="cancel">Отмена</button><button class="btn btn--primary" id="s-save" type="button" ${d.busy ? 'disabled' : ''}>${d.busy ? 'Записываю…' : 'Сдать'}</button></div>`;
     placeThumb(false);
+    updatePots();
+  }
+
+  // Подсказка под количеством: сколько это в горшках (пока человек вводит, окно не перерисовываем)
+  function updatePots() {
+    const el = $('#s-pots');
+    if (!el || !draft) return;
+    const d = draft;
+    const product = (d.fixed ? d.product : (products.length && d.pick !== '__other' ? d.pick : d.other)).trim();
+    const n = perBox[product];
+    const qty = Number(String(d.qty).replace(',', '.'));
+    el.textContent = d.unit !== 'коробок' || !n ? '' : qty > 0 ? `${num(qty)} × ${n} = ${num(Math.round(qty * n * 100) / 100)} горшков` : `В коробке ${n} горшков`;
   }
 
   async function saveSheet() {
@@ -245,7 +269,7 @@
     if (!draft) return;
     const key = btn.dataset.unit ? 'unit' : 'holes';
     const val = btn.dataset.unit || btn.dataset.holes;
-    if (key === 'unit') { if (draft.unit === val) return; draft.unit = val; }
+    if (key === 'unit') { if (draft.unit === val) return; draft.unit = val; updatePots(); }
     else { if (draft.noHoles === (val === 'no')) return; draft.noHoles = val === 'no'; }
     const seg = btn.closest('.wunit');
     seg.querySelectorAll('.seg__btn').forEach((b) => {
@@ -320,12 +344,12 @@
   function listHtml() {
     if (!entries.length) return '<p class="muted">Пока ничего не записано.</p>';
     const sums = new Map();
-    for (const e of entries) { const k = `${nameOf(e)}|${unitOf(e)}`; sums.set(k, (sums.get(k) || 0) + e.qty); }
+    for (const e of entries) { const k = `${nameOf(e)}|${unitOf(e)}`; const s0 = sums.get(k) || { q: 0, p: 0 }; sums.set(k, { q: s0.q + e.qty, p: s0.p + potsOf(e) }); }
     return `<ul class="wlist">${entries.map((e) => `<li class="rec">
         ${rowText(e)}
         <button class="btn btn--icon" data-del="${esc(e.id)}" type="button" aria-label="Удалить запись">✕</button></li>`).join('')}</ul>
-      <div class="mt-12">${[...sums].map(([k, q]) => { const [p, u] = k.split('|'); return `<div class="wsum"><span>${esc(p)}</span><b>${num(q)} ${u}</b></div>`; }).join('')}
-        <div class="wsum"><span><b>Всего</b></span><b>${totalText(entries)}</b></div></div>`;
+      <div class="mt-12">${[...sums].map(([k, { q, p: pots }]) => { const [p, u] = k.split('|'); return `<div class="wsum"><span>${esc(p)}</span><b>${num(q)} ${u}${pots ? ` · ${num(Math.round(pots * 100) / 100)} горшков` : ''}</b></div>`; }).join('')}
+        <div class="wsum"><span><b>Всего</b></span><b>${totalText(entries)}</b></div>${potsLine(entries) ? `<div class="wsum"><span><b>Горшков</b></span><b>${potsLine(entries)}</b></div>` : ''}</div>`;
   }
 
   function renderLogin(app) {
@@ -344,8 +368,8 @@
     if (id === 'l-name') creds.name = e.target.value;
     else if (id === 'l-pass') creds.pass = e.target.value;
     else if (!draft) return;
-    else if (id === 's-qty') draft.qty = e.target.value;
-    else if (id === 's-other') draft.other = e.target.value;
+    else if (id === 's-qty') { draft.qty = e.target.value; updatePots(); }
+    else if (id === 's-other') { draft.other = e.target.value; updatePots(); }
     else if (id === 's-color-other') draft.colorOther = e.target.value;
     else if (id === 's-time') { draft.time = e.target.value; draft.touched = true; }
   });
