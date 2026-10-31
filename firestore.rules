@@ -29,10 +29,15 @@ service cloud.firestore {
       allow create, update: if (owner() || worker()) && okShipment(request.resource.data);
     }
 
-    // Списки видов продукции и цветов для выпадающих списков: правит владелец, работники читают
+    // Списки видов продукции и цветов для выпадающих списков: правит владелец, работники читают.
+    // Работники могут менять только список станков (какой вид продукции сейчас на станке), остальное — только владелец.
     match /settings/production {
       allow read: if owner() || worker();
       allow write: if owner();
+      allow update: if worker()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['machines'])
+        && request.resource.data.machines is list
+        && request.resource.data.machines.size() <= 30;
     }
   }
 }

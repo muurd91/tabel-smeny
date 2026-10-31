@@ -199,8 +199,10 @@ function renderShiftbar() {
       main = start - now < 864e5 ? `До начала ${durText(start - now)}` : 'Смена впереди';
       sub = span; pct = 0;
     } else if (now < end) {
-      main = `Осталось ${durText(end - now)}`;
-      sub = `до ${hhmm(end)}`; pct = (now - start) / (end - start) * 100;
+      // Последняя смена перед выходными (следующий день цикла — «В»): считаем до начала выходных, «до 7:30» не дублируем
+      const last = Sched.type(Dates.add(d, 1)) === 'В';
+      main = last ? `До выходных осталось ${durText(end - now)}` : `Осталось ${durText(end - now)}`;
+      sub = last ? '' : `до ${hhmm(end)}`; pct = (now - start) / (end - start) * 100;
     } else {
       main = 'Смена закончилась'; sub = span; pct = 100;
     }

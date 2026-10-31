@@ -161,6 +161,9 @@
     setTimeout(() => $('#s-qty')?.focus(), 50);
   }
 
+  // Поле «Какой цвет» под плашками (меняется на месте, окно не перерисовываем — иначе капле не по чему перетекать)
+  const colorExtra = (d) => (d.color === '__other' ? `<label class="field"><span class="field__label">Какой цвет</span><input class="input" id="s-color-other" value="${esc(d.colorOther)}" autocomplete="off"></label>` : '');
+
   function renderSheet() {
     const d = draft;
     if (!d) return;
@@ -172,8 +175,8 @@
       ${products.length && d.pick === '__other' ? `<label class="field"><span class="field__label">Какая продукция</span><input class="input" id="s-other" value="${esc(d.other)}" autocomplete="off"></label>` : ''}`;
     const colorBlock = colors.length
       ? `<div class="field__label">Цвет</div>
-         <div class="chips">${colors.map((c) => `<button class="chip${d.color === c ? ' is-on' : ''}" data-color="${esc(c)}" type="button">${esc(c)}</button>`).join('')}<button class="chip${d.color === '__other' ? ' is-on' : ''}" data-color="__other" type="button">Другой…</button></div>
-         ${d.color === '__other' ? `<label class="field"><span class="field__label">Какой цвет</span><input class="input" id="s-color-other" value="${esc(d.colorOther)}" autocomplete="off"></label>` : ''}`
+         <div class="chips wchips"><span class="cthumb" aria-hidden="true"></span>${colors.map((c) => `<button class="chip${d.color === c ? ' is-on' : ''}" data-color="${esc(c)}" type="button"><span class="chip__t">${esc(c)}</span></button>`).join('')}<button class="chip${d.color === '__other' ? ' is-on' : ''}" data-color="__other" type="button"><span class="chip__t">Другой…</span></button></div>
+         <div id="s-color-extra">${colorExtra(d)}</div>`
       : `<label class="field"><span class="field__label">Цвет</span><input class="input" id="s-color-other" value="${esc(d.colorOther)}" autocomplete="off" placeholder="если есть"></label>`;
     sheetBody().innerHTML = `<div class="sheet__grip" tabindex="-1"></div>
       <h3>${esc(d.machine || 'Продукция не со станка')}</h3>
@@ -244,8 +247,43 @@
   // ---------- Ползунок «коробок | штук»: капля перетекает на новое место ----------
   // Не перерисовываем окно (иначе анимировать нечего): двигаем один и тот же элемент. Капля растягивается
   // в сторону движения, перетекает и слегка пружинит. Если у человека включено «уменьшить анимацию» — просто переезжает.
+  // Плашки цветов: одна капля переезжает на выбранную (плашки идут в несколько рядов — двигаем и по горизонтали, и по вертикали).
+  // В пределах ряда растягивается, как в переключателях; между рядами — плавно «переплывает». Ничего не выбрано — гаснет.
+  function placeChips(animate) {
+    const box = document.querySelector('#sheet .wchips');
+    const thumb = box?.querySelector('.cthumb');
+    if (!thumb) return;
+    const on = box.querySelector('.chip.is-on');
+    if (!on || !on.offsetWidth) { thumb.style.opacity = '0'; thumb.dataset.on = ''; return; }
+    const to = { left: on.offsetLeft, top: on.offsetTop, width: on.offsetWidth, height: on.offsetHeight };
+    const had = thumb.dataset.on === '1';
+    const from = had ? { left: parseFloat(thumb.style.left), top: parseFloat(thumb.style.top), width: parseFloat(thumb.style.width), height: parseFloat(thumb.style.height) } : null;
+    for (const k of ['left', 'top', 'width', 'height']) thumb.style[k] = to[k] + 'px';
+    thumb.style.opacity = '1';
+    thumb.dataset.on = '1';
+    if (!animate || matchMedia('(prefers-reduced-motion: reduce)').matches || !thumb.animate) return;
+    const px = (r) => ({ left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+    if (!from) { thumb.animate([{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'scale(1)' }], { duration: 240, easing: 'cubic-bezier(.3, .7, .3, 1)' }); return; }
+    if (from.left === to.left && from.top === to.top) return;
+    if (Math.abs(from.top - to.top) < 4) { // тот же ряд: вытянулась через обе плашки и села на место
+      const l = Math.min(from.left, to.left);
+      const r = Math.max(from.left + from.width, to.left + to.width);
+      thumb.animate([
+        { ...px(from), transform: 'scale(1, 1)' },
+        { ...px({ ...from, left: l, width: r - l }), transform: 'scale(1, .86)', offset: 0.4 },
+        { ...px({ ...to, width: to.width * 1.06 }), transform: 'scale(1.03, 1.06)', offset: 0.75 },
+        { ...px(to), transform: 'scale(1, 1)' },
+      ], { duration: 560, easing: 'cubic-bezier(.3, .7, .3, 1)' });
+    } else { // другой ряд: переплывает с лёгким «вздохом» посередине
+      thumb.animate([
+        { ...px(from), transform: 'scale(1, 1)' },
+        { transform: 'scale(1.08, .92)', offset: 0.45 },
+        { ...px(to), transform: 'scale(1, 1)' },
+      ], { duration: 520, easing: 'cubic-bezier(.3, .7, .3, 1)' });
+    }
+  }
   function placeThumb(animate, seg) {
-    if (!seg) { document.querySelectorAll('#sheet .wunit').forEach((s) => placeThumb(animate, s)); return; }
+    if (!seg) { document.querySelectorAll('#sheet .wunit').forEach((s) => placeThumb(animate, s)); placeChips(animate); return; }
     const thumb = seg?.querySelector('.wthumb');
     const on = seg?.querySelector('.is-on');
     if (!thumb || !on || !on.offsetWidth) return;
@@ -318,7 +356,13 @@
       const end = new Date(start.getTime() + 12 * 3600e3);
       const span = `${hm(start)}–${hm(end)}`;
       if (now < start) { main = start - now < 864e5 ? `До начала ${durText(start - now)}` : 'Смена впереди'; sub = span; pct = 0; }
-      else if (now < end) { main = `Осталось ${durText(end - now)}`; sub = `до ${hm(end)}`; pct = (now - start) / (end - start) * 100; }
+      else if (now < end) {
+        // Последняя смена перед выходными (следующий день по графику — «В»): считаем до начала выходных
+        const next = new Date(day); next.setDate(next.getDate() + 1);
+        const last = crewType(next) === 'В';
+        main = last ? `До выходных осталось ${durText(end - now)}` : `Осталось ${durText(end - now)}`;
+        sub = last ? '' : `до ${hm(end)}`; pct = (now - start) / (end - start) * 100;
+      }
       else { main = 'Смена закончилась'; sub = span; pct = 100; }
     }
     $('#shiftbar').innerHTML = `
@@ -338,13 +382,14 @@
   // ---------- Экран ----------
   function render() {
     const app = $('#app');
+    closeMenu(false);
     if (!user) { renderLogin(app); return; }
     const working = machines.filter((m) => m.on);
     app.innerHTML = `
       <div class="card">
         <h2>Станки</h2>
         ${working.length
-    ? working.map((m) => `<div class="wm"><div class="wm__info"><b>${esc(m.name)}</b><span class="small muted">${esc(m.product || 'вид продукции не указан')}</span></div>
+    ? working.map((m) => `<div class="wm"><b class="wm__name">${esc(m.name)}</b>${productPick(m)}
             <button class="btn btn--primary wm__btn" data-mach="${esc(m.name)}" type="button">Сдать продукцию</button></div>`).join('')
     : '<p class="muted">Работающих станков в списке нет — мастер их ещё не отметил.</p>'}
         <button class="wlink wm__other" data-mach="" type="button">Сдать продукцию не со станка</button>
@@ -352,6 +397,78 @@
       </div>
       <div class="card"><h2>Сдано за смену</h2><div id="list">${listHtml()}</div></div>
       <div class="wbar"><button class="wlink" id="f-out" type="button">Выйти</button></div>`;
+  }
+
+  // Вид продукции на станке: выпадающий список — работник выставляет, что сейчас делают на станке (пишется в общие настройки, видно и мастеру)
+  function productPick(m) {
+    if (!products.length) return `<span class="small muted">${esc(m.product || 'вид продукции не указан')}</span>`;
+    return `<div class="wsel"><button class="wsel__btn${m.product ? '' : ' is-empty'}" data-msel="${esc(m.name)}" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Вид продукции на станке ${esc(m.name)}"><span class="wsel__t">${esc(m.product || 'продукция')}</span><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>`;
+  }
+
+  // Выпадающий список видов продукции в стиле приложения (вместо системного белого): вытекает из кнопки, закрывается по касанию мимо
+  let menu = null;
+  let menuFor = '';
+  const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function closeMenu(animate = true) {
+    if (!menu) return;
+    const el = menu;
+    menu = null;
+    menuFor = '';
+    document.querySelectorAll('[data-msel][aria-expanded="true"]').forEach((x) => x.setAttribute('aria-expanded', 'false'));
+    if (!animate || reducedMotion() || !el.animate) { el.remove(); return; }
+    const an = el.animate([{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(.94, .9)' }], { duration: 150, easing: 'ease-in' });
+    an.onfinish = an.oncancel = () => el.remove();
+  }
+  function openMenu(btn) {
+    const name = btn.dataset.msel;
+    if (menu && menuFor === name) { closeMenu(); return; }
+    closeMenu(false);
+    const m = machines.find((x) => x.name === name);
+    if (!m) return;
+    const list = !m.product || products.includes(m.product) ? products : [m.product, ...products];
+    const el = document.createElement('div');
+    el.className = 'wmenu';
+    el.setAttribute('role', 'listbox');
+    el.innerHTML = `<button class="wmenu__item wmenu__item--none" data-mval="" data-for="${esc(name)}" type="button" role="option">— не указан —</button>${list.map((p) => `<button class="wmenu__item${p === m.product ? ' is-on' : ''}" data-mval="${esc(p)}" data-for="${esc(name)}" type="button" role="option" aria-selected="${p === m.product}">${esc(p)}</button>`).join('')}`;
+    el.style.visibility = 'hidden';
+    el.style.minWidth = `${Math.max(btn.offsetWidth, 200)}px`;
+    document.body.appendChild(el);
+    const r = btn.getBoundingClientRect();
+    const below = innerHeight - r.bottom - 12;
+    const above = r.top - 12;
+    const down = below >= Math.min(el.scrollHeight, 240) || below >= above;
+    el.style.maxHeight = `${Math.max(120, Math.min(340, down ? below : above))}px`;
+    const w = el.offsetWidth;
+    const left = Math.max(12, Math.min(r.left, innerWidth - w - 12));
+    el.style.left = `${left}px`;
+    el.style.top = `${down ? r.bottom + 6 : r.top - 6 - el.offsetHeight}px`;
+    el.style.transformOrigin = `${Math.min(w, Math.max(0, r.left - left + r.width / 2))}px ${down ? '0' : '100%'}`;
+    el.style.visibility = '';
+    el.querySelector('.is-on')?.scrollIntoView({ block: 'nearest' });
+    menu = el;
+    menuFor = name;
+    btn.setAttribute('aria-expanded', 'true');
+    if (!reducedMotion() && el.animate) {
+      el.animate([
+        { opacity: 0, transform: 'scale(.9, .55)', clipPath: `inset(${down ? '0 0 60%' : '60% 0 0'} 0 round 16px)` },
+        { opacity: 1, transform: 'scale(1, 1)', clipPath: 'inset(0 0 0 0 round 16px)' },
+      ], { duration: 280, easing: 'cubic-bezier(.3, .7, .3, 1)' });
+    }
+  }
+  document.addEventListener('pointerdown', (e) => { if (menu && !e.target.closest('.wmenu, [data-msel]')) closeMenu(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
+  window.addEventListener('scroll', () => closeMenu(false), { passive: true });
+  window.addEventListener('resize', () => closeMenu(false));
+
+  async function setMachineProduct(name, product) {
+    const next = machines.map((m) => (m.name === name ? { ...m, product } : m));
+    machines = next; // сразу на экране, в облако — следом
+    error = '';
+    render();
+    try {
+      const { fs, db } = fb;
+      await fs.setDoc(fs.doc(db, 'settings', 'production'), { machines: next.map(({ name: n, on, product: p }) => ({ name: n, on, product: p })) }, { merge: true });
+    } catch (e) { error = `Вид продукции не сменился. ${explain(e)}`; render(); }
   }
 
   function listHtml() {
@@ -389,13 +506,19 @@
   document.addEventListener('click', async (e) => {
     const t = e.target.closest('button');
     if (!t) return;
-    if (t.id === 's-save') saveSheet();
+    if (t.dataset.msel !== undefined) openMenu(t);
+    else if (t.dataset.mval !== undefined) { const nm = t.dataset.for; const v = t.dataset.mval; closeMenu(); if (machines.find((x) => x.name === nm)?.product !== v) setMachineProduct(nm, v); }
+    else if (t.id === 's-save') saveSheet();
     else if (t.dataset.unit || t.dataset.holes) setSeg(t);
     else if (t.dataset.color !== undefined) {
       if (draft) {
         draft.color = draft.color === t.dataset.color ? '' : t.dataset.color;
         if (draft.color !== '__other') draft.colorOther = '';
-        renderSheet();
+        // Окно не перерисовываем: меняем отметку, двигаем каплю и подменяем поле «Какой цвет»
+        document.querySelectorAll('#sheet .wchips .chip').forEach((c) => c.classList.toggle('is-on', c.dataset.color === draft.color));
+        placeChips(true);
+        const extra = $('#s-color-extra');
+        if (extra) extra.innerHTML = colorExtra(draft);
         if (draft.color === '__other') $('#s-color-other')?.focus(); // «Другой» — цвет пишут от руки
       }
     } else if (t.dataset.mach !== undefined) openSheet(t.dataset.mach);
