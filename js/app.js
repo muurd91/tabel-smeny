@@ -187,7 +187,10 @@ function renderShiftbar() {
   const t = Sched.type(d);
   const now = new Date();
   const name = { Д: 'Дневная', Н: 'Ночная' }[t] || 'Выходной';
-  const thisYear = d.slice(0, 4) === Dates.today().slice(0, 4);
+  // В шапке — настоящая дата и день недели. Ночная смена идёт и после полуночи: смена 30-го, а на календаре уже 31-е.
+  // Если открыта другая смена (на «Смене» выбрали день) — дата выбранного дня, как раньше.
+  const shown = d === Sched.current() ? Dates.today() : d;
+  const thisYear = shown.slice(0, 4) === Dates.today().slice(0, 4);
 
   let main, sub = '', pct = null;
   if (t === 'В') {
@@ -208,7 +211,7 @@ function renderShiftbar() {
     }
   }
 
-  const title = `${esc(name)} · ${esc(dateTitle(d, !thisYear))}`;
+  const title = `${esc(name)} · ${esc(dateTitle(shown, !thisYear))}`;
   el.innerHTML = `
     ${onShift ? `<label class="shiftbar__date"><span class="shiftbar__title">${title}</span>${ICON.down}
       <input class="datebar__input" type="date" id="shift-date" value="${d}" aria-label="Выбрать дату"></label>`

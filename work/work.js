@@ -343,7 +343,8 @@
     const cur = shiftOf(now); // день смены по времени суток
     const day = new Date(cur.start); day.setHours(0, 0, 0, 0);
     const t = crewType(day) || (cur.night ? 'Н' : 'Д'); // графика нет — как по времени суток
-    const title = `${{ Д: 'Дневная', Н: 'Ночная' }[t] || 'Выходной'} · ${WD[day.getDay()]}, ${day.getDate()} ${MONTHS_GEN[day.getMonth()]}`;
+    // Дата и день недели — настоящие (ночная смена идёт и после полуночи: смена 30-го, а на календаре уже 31-е)
+    const title = `${{ Д: 'Дневная', Н: 'Ночная' }[t] || 'Выходной'} · ${WD[now.getDay()]}, ${now.getDate()} ${MONTHS_GEN[now.getMonth()]}`;
     let main = 'Выходной по графику';
     let sub = '';
     let pct = null;
