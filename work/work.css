@@ -72,3 +72,10 @@ a.shiftbar__back { display: inline-flex; align-items: center; justify-content: c
 .wmenu__item:active { background: var(--surface-2); }
 .wmenu__item.is-on { background: var(--brand); color: var(--on-brand); font-weight: 600; }
 .wmenu__item--none { color: var(--muted); }
+
+/* Окно «Станки»: список работающих с кнопкой «Убрать» */
+.wmrows { margin: 4px 0 0; }
+.wmrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.wmrow:last-child { border-bottom: 0; }
+.wmrow b { font-size: 17px; }
+.wmrow__del { min-height: 36px; padding: 0 14px; color: var(--err); }

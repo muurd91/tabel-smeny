@@ -389,7 +389,7 @@
     ? working.map((m) => `<div class="wm"><b class="wm__name">${esc(m.name)}</b>${productPick(m)}
             <button class="btn btn--primary wm__btn" data-mach="${esc(m.name)}" type="button">Сдать продукцию</button></div>`).join('')
     : '<p class="muted">Работающих станков в списке нет — мастер их ещё не отметил.</p>'}
-        <button class="wlink wm__other" id="m-add" type="button">+ Добавить станок в работу</button>
+        <button class="wlink wm__other" id="m-add" type="button">Добавить или убрать станок</button>
         <button class="wlink wm__other" data-mach="" type="button">Сдать продукцию не со станка</button>
         <p class="werr" id="f-err">${esc(error)}</p>
       </div>
@@ -470,20 +470,30 @@
   }
   const setMachineProduct = (name, product) => saveMachines(machines.map((m) => (m.name === name ? { ...m, product } : m)), 'Вид продукции не сменился.');
 
-  // «Добавить станок в работу»: выбрать из остановленных или вписать название станка, которого нет в списке
+  // «Станки»: убрать станок из работы или добавить — выбрать из остановленных либо вписать название станка, которого нет в списке
   const DEFAULT_MACHINES = ['Ф1', 'Ф2', 'Ф3', 'Ф4', 'Ф5', 'Ф6', 'К1', 'К2', 'К3'];
   const MAX_MACHINES = 30; // столько пускают правила Firestore
   function openAddMachine() {
     const idle = machines.filter((m) => !m.on);
+    const working = machines.filter((m) => m.on);
     sheetBody().innerHTML = `<div class="sheet__grip" tabindex="-1"></div>
-      <h3>Добавить станок в работу</h3>
-      <p class="sheet__sub">Выберите станок — он появится в списке, и по нему можно сдавать продукцию.</p>
+      <h3>Станки</h3>
+      ${working.length ? `<div class="field__label">В работе</div>
+      <div class="wmrows">${working.map((m) => `<div class="wmrow"><b>${esc(m.name)}</b><button class="btn wmrow__del" data-mdel="${esc(m.name)}" type="button">Убрать</button></div>`).join('')}</div>` : ''}
+      <div class="field__label mt-12">Добавить в работу</div>
       ${idle.length ? `<div class="chips">${idle.map((m) => `<button class="chip" data-madd="${esc(m.name)}" type="button">${esc(m.name)}</button>`).join('')}</div>` : '<p class="muted">Все станки из списка уже в работе.</p>'}
       <div class="field mt-12"><span class="field__label">Нет в списке? Впишите название станка</span>
         <div class="row row--nowrap"><input class="input" id="m-new" maxlength="12" autocomplete="off" autocapitalize="characters" placeholder="например, Э1"><button class="btn btn--primary" id="m-new-go" type="button">Добавить</button></div></div>
       <p class="werr" id="m-err"></p>
       <div class="sheet__actions"><button class="btn" value="cancel">Закрыть</button></div>`;
     if (!sheet().open) sheet().showModal();
+  }
+  // Убрать станок: стандартный (Ф1–Ф6, К1–К3) остаётся в списке остановленным — его можно вернуть; добавленный вручную удаляется совсем
+  function removeMachine(name) {
+    if (!confirm(`Убрать станок «${name}» из работы?`)) return;
+    const next = DEFAULT_MACHINES.includes(name) ? machines.map((m) => (m.name === name ? { ...m, on: false } : m)) : machines.filter((m) => m.name !== name);
+    saveMachines(next, 'Станок не убрался.');
+    openAddMachine(); // окно остаётся открытым — обновить список
   }
   function addMachine(rawName, isNew) {
     const name = rawName.trim().replace(/s+/g, ' ');
@@ -534,6 +544,7 @@
     if (!t) return;
     if (t.id === 'm-add') openAddMachine();
     else if (t.dataset.madd !== undefined) addMachine(t.dataset.madd);
+    else if (t.dataset.mdel !== undefined) removeMachine(t.dataset.mdel);
     else if (t.id === 'm-new-go') addMachine($('#m-new').value, true);
     else if (t.dataset.msel !== undefined) openMenu(t);
     else if (t.dataset.mval !== undefined) { const nm = t.dataset.for; const v = t.dataset.mval; closeMenu(); if (machines.find((x) => x.name === nm)?.product !== v) setMachineProduct(nm, v); }
