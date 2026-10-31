@@ -265,22 +265,18 @@
     const px = (r) => ({ left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
     if (!from) { thumb.animate([{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'scale(1)' }], { duration: 240, easing: 'cubic-bezier(.3, .7, .3, 1)' }); return; }
     if (from.left === to.left && from.top === to.top) return;
-    if (Math.abs(from.top - to.top) < 4) { // тот же ряд: вытянулась через обе плашки и села на место
-      const l = Math.min(from.left, to.left);
-      const r = Math.max(from.left + from.width, to.left + to.width);
-      thumb.animate([
-        { ...px(from), transform: 'scale(1, 1)' },
-        { ...px({ ...from, left: l, width: r - l }), transform: 'scale(1, .86)', offset: 0.4 },
-        { ...px({ ...to, width: to.width * 1.06 }), transform: 'scale(1.03, 1.06)', offset: 0.75 },
-        { ...px(to), transform: 'scale(1, 1)' },
-      ], { duration: 560, easing: 'cubic-bezier(.3, .7, .3, 1)' });
-    } else { // другой ряд: переплывает с лёгким «вздохом» посередине
-      thumb.animate([
-        { ...px(from), transform: 'scale(1, 1)' },
-        { transform: 'scale(1.08, .92)', offset: 0.45 },
-        { ...px(to), transform: 'scale(1, 1)' },
-      ], { duration: 520, easing: 'cubic-bezier(.3, .7, .3, 1)' });
-    }
+    // Как у переключателей: вытягивается в сторону движения, перетекает и слегка «плюхается» на место.
+    // В пределах ряда растягивается через обе плашки; на другой ряд — растягивается по диагонали между ними (не закрывая соседей).
+    const same = Math.abs(from.top - to.top) < 4;
+    const mid = same
+      ? { left: Math.min(from.left, to.left), top: from.top, width: Math.max(from.left + from.width, to.left + to.width) - Math.min(from.left, to.left), height: from.height }
+      : { left: (from.left + to.left) / 2, top: (from.top + to.top) / 2, width: (from.width + to.width) / 2 * 1.25, height: (from.height + to.height) / 2 };
+    thumb.animate([
+      { ...px(from), transform: 'scale(1, 1)' },
+      { ...px(mid), transform: 'scale(1, .86)', offset: 0.4 },
+      { ...px({ ...to, width: to.width * 1.06 }), transform: 'scale(1.03, 1.06)', offset: 0.75 },
+      { ...px(to), transform: 'scale(1, 1)' },
+    ], { duration: 560, easing: 'cubic-bezier(.3, .7, .3, 1)' });
   }
   function placeThumb(animate, seg) {
     if (!seg) { document.querySelectorAll('#sheet .wunit').forEach((s) => placeThumb(animate, s)); placeChips(animate); return; }
@@ -392,6 +388,7 @@
     ? working.map((m) => `<div class="wm"><b class="wm__name">${esc(m.name)}</b>${productPick(m)}
             <button class="btn btn--primary wm__btn" data-mach="${esc(m.name)}" type="button">Сдать продукцию</button></div>`).join('')
     : '<p class="muted">Работающих станков в списке нет — мастер их ещё не отметил.</p>'}
+        <button class="wlink wm__other" id="m-add" type="button">+ Добавить станок в работу</button>
         <button class="wlink wm__other" data-mach="" type="button">Сдать продукцию не со станка</button>
         <p class="werr" id="f-err">${esc(error)}</p>
       </div>
@@ -450,9 +447,9 @@
     btn.setAttribute('aria-expanded', 'true');
     if (!reducedMotion() && el.animate) {
       el.animate([
-        { opacity: 0, transform: 'scale(.9, .55)', clipPath: `inset(${down ? '0 0 60%' : '60% 0 0'} 0 round 16px)` },
-        { opacity: 1, transform: 'scale(1, 1)', clipPath: 'inset(0 0 0 0 round 16px)' },
-      ], { duration: 280, easing: 'cubic-bezier(.3, .7, .3, 1)' });
+        { opacity: 0, transform: 'scale(.92, .6)' },
+        { opacity: 1, transform: 'scale(1, 1)' },
+      ], { duration: 260, easing: 'cubic-bezier(.3, .7, .3, 1)' });
     }
   }
   document.addEventListener('pointerdown', (e) => { if (menu && !e.target.closest('.wmenu, [data-msel]')) closeMenu(); });
@@ -460,15 +457,43 @@
   window.addEventListener('scroll', () => closeMenu(false), { passive: true });
   window.addEventListener('resize', () => closeMenu(false));
 
-  async function setMachineProduct(name, product) {
-    const next = machines.map((m) => (m.name === name ? { ...m, product } : m));
+  // Список станков — в общие настройки (правила пускают работников только к этому полю)
+  async function saveMachines(next, failText) {
     machines = next; // сразу на экране, в облако — следом
     error = '';
     render();
     try {
       const { fs, db } = fb;
       await fs.setDoc(fs.doc(db, 'settings', 'production'), { machines: next.map(({ name: n, on, product: p }) => ({ name: n, on, product: p })) }, { merge: true });
-    } catch (e) { error = `Вид продукции не сменился. ${explain(e)}`; render(); }
+    } catch (e) { error = `${failText} ${explain(e)}`; render(); }
+  }
+  const setMachineProduct = (name, product) => saveMachines(machines.map((m) => (m.name === name ? { ...m, product } : m)), 'Вид продукции не сменился.');
+
+  // «Добавить станок в работу»: выбрать из остановленных или вписать название станка, которого нет в списке
+  const DEFAULT_MACHINES = ['Ф1', 'Ф2', 'Ф3', 'Ф4', 'Ф5', 'Ф6', 'К1', 'К2', 'К3'];
+  const MAX_MACHINES = 30; // столько пускают правила Firestore
+  function openAddMachine() {
+    const idle = machines.filter((m) => !m.on);
+    sheetBody().innerHTML = `<div class="sheet__grip" tabindex="-1"></div>
+      <h3>Добавить станок в работу</h3>
+      <p class="sheet__sub">Выберите станок — он появится в списке, и по нему можно сдавать продукцию.</p>
+      ${idle.length ? `<div class="chips">${idle.map((m) => `<button class="chip" data-madd="${esc(m.name)}" type="button">${esc(m.name)}</button>`).join('')}</div>` : '<p class="muted">Все станки из списка уже в работе.</p>'}
+      <div class="field mt-12"><span class="field__label">Нет в списке? Впишите название станка</span>
+        <div class="row row--nowrap"><input class="input" id="m-new" maxlength="12" autocomplete="off" autocapitalize="characters" placeholder="например, Э1"><button class="btn btn--primary" id="m-new-go" type="button">Добавить</button></div></div>
+      <p class="werr" id="m-err"></p>
+      <div class="sheet__actions"><button class="btn" value="cancel">Закрыть</button></div>`;
+    if (!sheet().open) sheet().showModal();
+  }
+  function addMachine(rawName, isNew) {
+    const name = rawName.trim().replace(/s+/g, ' ');
+    const fail = (m) => { const el = $('#m-err'); if (el) el.textContent = m; };
+    if (!name) return fail('Впишите название станка.');
+    const rows = machines.length ? machines : DEFAULT_MACHINES.map((n) => ({ name: n, on: false, product: '' })); // список ещё не заводили — стандартные станки не теряем
+    const same = rows.find((m) => m.name.toLowerCase() === name.toLowerCase());
+    if (same?.on) return fail(`Станок «${same.name}» уже в работе.`);
+    if (!same && rows.length >= MAX_MACHINES) return fail(`Больше ${MAX_MACHINES} станков не поддерживается.`);
+    sheet().close();
+    saveMachines(same ? rows.map((m) => (m === same ? { ...m, on: true } : m)) : [...rows, { name, on: true, product: '' }], 'Станок не добавился.');
   }
 
   function listHtml() {
@@ -506,7 +531,10 @@
   document.addEventListener('click', async (e) => {
     const t = e.target.closest('button');
     if (!t) return;
-    if (t.dataset.msel !== undefined) openMenu(t);
+    if (t.id === 'm-add') openAddMachine();
+    else if (t.dataset.madd !== undefined) addMachine(t.dataset.madd);
+    else if (t.id === 'm-new-go') addMachine($('#m-new').value, true);
+    else if (t.dataset.msel !== undefined) openMenu(t);
     else if (t.dataset.mval !== undefined) { const nm = t.dataset.for; const v = t.dataset.mval; closeMenu(); if (machines.find((x) => x.name === nm)?.product !== v) setMachineProduct(nm, v); }
     else if (t.id === 's-save') saveSheet();
     else if (t.dataset.unit || t.dataset.holes) setSeg(t);
@@ -538,6 +566,7 @@
   document.addEventListener('submit', (e) => {
     if (e.submitter?.value === 'cancel') return;
     e.preventDefault();
+    if (!draft && $('#m-new')) { $('#m-new-go').click(); return; }
     saveSheet();
   });
   document.addEventListener('keydown', (e) => {

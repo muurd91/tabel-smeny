@@ -12,7 +12,7 @@ a.shiftbar__back { display: inline-flex; align-items: center; justify-content: c
 .wm { display: grid; grid-template-columns: 2.4em minmax(0, 1fr) auto; align-items: center; column-gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
 .wm__name { font-size: 18px; }
 .wm__btn { min-height: 44px; padding: 0 14px; font-size: 15px; white-space: nowrap; }
-.wm__other { display: block; margin: 10px auto 0; }
+.wm__other { display: block; margin: 6px auto 0; }
 .sheet .seg { margin: 0; }
 .wver { text-align: center; color: var(--muted); font-size: 13px; margin: 4px 0 20px; }
 .werr { color: var(--err); margin: 8px 0 0; min-height: 1.2em; }
@@ -38,7 +38,8 @@ a.shiftbar__back { display: inline-flex; align-items: center; justify-content: c
 /* ---------- Плашки цветов: одна капля перетекает между ними (как в переключателях) ---------- */
 .wchips { position: relative; isolation: isolate; }
 /* Слои: заливка плашек → капля (скользит по самим плашкам) → надпись поверх капли */
-.wchips .chip { transition: color .3s ease, transform .08s ease; }
+.wchips .chip { transition: color .3s ease; }
+.wchips .chip:active { transform: none; } /* без масштаба: иначе плашка станет отдельным слоем и закроет каплю */
 .wchips .chip.is-on { background: var(--surface-2); border-color: transparent; color: var(--on-brand); }
 .chip__t { position: relative; z-index: 1; pointer-events: none; }
 .cthumb {
@@ -62,7 +63,7 @@ a.shiftbar__back { display: inline-flex; align-items: center; justify-content: c
 .wsel__btn[aria-expanded="true"] svg { transform: rotate(180deg); }
 .wmenu {
   position: fixed; z-index: 60; box-sizing: border-box; max-width: calc(100vw - 24px); overflow-y: auto; overscroll-behavior: contain; padding: 6px;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 10px 28px rgb(20 30 25 / .22);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 8px 22px rgb(20 30 25 / .14);
 }
 .wmenu__item {
   display: block; width: 100%; min-height: 42px; padding: 9px 12px; border: 0; border-radius: 12px; background: none; color: var(--text);
