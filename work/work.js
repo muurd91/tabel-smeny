@@ -93,13 +93,13 @@
     if (!list.some(potsOf)) return '';
     const pots = list.reduce((s, e) => s + (unitOf(e) === 'штук' ? e.qty : potsOf(e)), 0);
     const rest = list.filter((e) => unitOf(e) === 'коробок' && !potsOf(e)).reduce((s, e) => s + e.qty, 0);
-    return `${num(Math.round(pots * 100) / 100)} горшков${rest ? ` + ${num(rest)} коробок без пересчёта` : ''}`;
+    return `${num(Math.round(pots * 100) / 100)} шт${rest ? ` + ${num(rest)} коробок без пересчёта` : ''}`;
   };
   const totalText = (list) => ['коробок', 'штук'].map((u) => [u, list.filter((e) => unitOf(e) === u).reduce((s, e) => s + e.qty, 0)]).filter(([, q]) => q).map(([u, q]) => `${num(q)} ${u}`).join(', ') || '0';
   // Когда запись добавлена: createdAt = null — ещё не дошла до сервера (самая свежая); у старых записей поля нет — берём время отвоза
   const addedAt = (e) => (e.createdAt?.toMillis ? e.createdAt.toMillis() : 'createdAt' in e ? Infinity : Date.parse(e.at));
   // Запись списка тремя столбцами: станок над временем, вид продукции над цветом, количество по центру
-  const rowText = (e) => `<div class="rec__col"><b>${e.machine ? esc(e.machine) : '—'}</b><span>${hhmm(new Date(e.at))}</span></div><div class="rec__col rec__col--p"><span>${esc(e.product || '—')}</span><span class="rec__sub">${esc([e.color, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', ') || ' ')}</span></div><div class="rec__col rec__q"><b>${num(e.qty)} ${unitOf(e)}</b>${potsOf(e) ? `<span class="rec__sub">${num(potsOf(e))} горшков</span>` : ''}</div>`;
+  const rowText = (e) => `<div class="rec__col"><b>${e.machine ? esc(e.machine) : '—'}</b><span>${hhmm(new Date(e.at))}</span></div><div class="rec__col rec__col--p"><span>${esc(e.product || '—')}</span><span class="rec__sub">${esc([e.color, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', ') || ' ')}</span></div><div class="rec__col rec__q"><b>${num(e.qty)} ${unitOf(e)}</b>${potsOf(e) ? `<span class="rec__sub">${num(potsOf(e))} шт</span>` : ''}</div>`;
   let error = '';
   let loggingIn = false; // идёт вход
   let draft = null;      // открытое окно «Сдать продукцию»
@@ -209,7 +209,7 @@
     const product = (d.fixed ? d.product : (products.length && d.pick !== '__other' ? d.pick : d.other)).trim();
     const n = perBox[product];
     const qty = Number(String(d.qty).replace(',', '.'));
-    el.textContent = d.unit !== 'коробок' || !n ? '' : qty > 0 ? `${num(qty)} × ${n} = ${num(Math.round(qty * n * 100) / 100)} горшков` : `В коробке ${n} горшков`;
+    el.textContent = d.unit !== 'коробок' || !n ? '' : qty > 0 ? `${num(qty)} × ${n} = ${num(Math.round(qty * n * 100) / 100)} шт` : `В коробке ${n} шт`;
   }
 
   async function saveSheet() {
@@ -324,7 +324,7 @@
       groups.get(k).items.push(e);
     }
     const row = (top, sub, qty, pots, cls = '') => `<div class="sumrow${cls}"><div class="rec__col"><span class="sumrow__top">${top}</span><span class="rec__sub">${sub || '&nbsp;'}</span></div><div class="rec__col rec__q"><b>${qty}</b><span class="rec__sub">${pots || '&nbsp;'}</span></div></div>`;
-    const potsText = (items) => (items.some(potsOf) ? `${num(Math.round(items.reduce((s, e) => s + (unitOf(e) === 'штук' ? e.qty : potsOf(e)), 0) * 100) / 100)} горшков` : '');
+    const potsText = (items) => (items.some(potsOf) ? `${num(Math.round(items.reduce((s, e) => s + (unitOf(e) === 'штук' ? e.qty : potsOf(e)), 0) * 100) / 100)} шт` : '');
     return [...groups.values()].map((g) => row(esc(g.product || '—'), esc(g.sub), totalText(g.items), potsText(g.items))).join('')
       + row('Всего', '', totalText(list), potsLine(list), ' sumrow--total');
   };

@@ -89,7 +89,7 @@ const potsLine = (list) => {
   if (!list.some(potsOf)) return '';
   const pots = list.reduce((s, e) => s + (unitOf(e) === 'штук' ? e.qty : potsOf(e)), 0);
   const rest = list.filter((e) => unitOf(e) === 'коробок' && !potsOf(e)).reduce((s, e) => s + e.qty, 0);
-  return `${num(Math.round(pots * 100) / 100)} горшков${rest ? ` + ${num(rest)} коробок без пересчёта` : ''}`;
+  return `${num(Math.round(pots * 100) / 100)} шт${rest ? ` + ${num(rest)} коробок без пересчёта` : ''}`;
 };
 const nameOf = (e) => [e.product, e.color, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', ');
 const title = `${night ? 'ночную' : 'дневную'} смену ${pad(day.getUTCDate())}.${pad(day.getUTCMonth() + 1)} (${night ? '19:30–7:30' : '7:30–19:30'})`;
@@ -100,11 +100,11 @@ else {
   const sums = new Map();
   for (const e of entries) { const k = `${nameOf(e)}|${unitOf(e)}`; const s0 = sums.get(k) || { q: 0, p: 0 }; sums.set(k, { q: s0.q + e.qty, p: s0.p + potsOf(e) }); }
   lines.push('');
-  for (const [k, { q, p }] of sums) { const [name, u] = k.split('|'); lines.push(`• ${name} — ${num(q)} ${u}${p ? ` (${num(Math.round(p * 100) / 100)} горшков)` : ''}`); }
+  for (const [k, { q, p }] of sums) { const [name, u] = k.split('|'); lines.push(`• ${name} — ${num(q)} ${u}${p ? ` (${num(Math.round(p * 100) / 100)} шт)` : ''}`); }
   lines.push('', `Всего: ${totalText(entries)}`);
-  if (potsLine(entries)) lines.push(`Горшков: ${potsLine(entries)}`);
+  if (potsLine(entries)) lines.push(`Штук: ${potsLine(entries)}`);
   lines.push('', 'По времени отвоза:');
-  for (const e of entries) lines.push(`${hhmm(e.at)} — ${e.machine ? `${e.machine} · ` : ''}${nameOf(e)} — ${num(e.qty)} ${unitOf(e)}${potsOf(e) ? ` (${num(potsOf(e))} горшков)` : ''}`);
+  for (const e of entries) lines.push(`${hhmm(e.at)} — ${e.machine ? `${e.machine} · ` : ''}${nameOf(e)} — ${num(e.qty)} ${unitOf(e)}${potsOf(e) ? ` (${num(potsOf(e))} шт)` : ''}`);
 }
 let text = (MODE === 'test' ? '🧪 Проверка итога смены. ' : '') + lines.join('\n');
 if (text.length > 4000) text = `${text.slice(0, 3990)}\n…`;

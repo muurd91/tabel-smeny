@@ -11,7 +11,7 @@ const Production = (() => {
   // Когда запись добавлена: createdAt = null — ещё не дошла до сервера (самая свежая); у старых записей поля нет — берём время отвоза
   const addedAt = (e) => (e.createdAt?.toMillis ? e.createdAt.toMillis() : 'createdAt' in e ? Infinity : Date.parse(e.at));
   // Запись списка тремя столбцами: станок над временем, вид продукции над цветом, количество по центру
-  const rowText = (e) => `<div class="rec__col"><b>${e.machine ? esc(e.machine) : '—'}</b><span>${hhmm(new Date(e.at))}</span></div><div class="rec__col rec__col--p"><span>${esc(e.product || '—')}</span><span class="rec__sub">${esc([e.color, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', ') || ' ')}</span></div><div class="rec__col rec__q"><b>${num(e.qty)} ${unitOf(e)}</b>${potsOf(e) ? `<span class="rec__sub">${num(potsOf(e))} горшков</span>` : ''}</div>`;
+  const rowText = (e) => `<div class="rec__col"><b>${e.machine ? esc(e.machine) : '—'}</b><span>${hhmm(new Date(e.at))}</span></div><div class="rec__col rec__col--p"><span>${esc(e.product || '—')}</span><span class="rec__sub">${esc([e.color, e.noHoles ? 'без отверстий' : ''].filter(Boolean).join(', ') || ' ')}</span></div><div class="rec__col rec__q"><b>${num(e.qty)} ${unitOf(e)}</b>${potsOf(e) ? `<span class="rec__sub">${num(potsOf(e))} шт</span>` : ''}</div>`;
   const num = (n) => String(n).replace('.', ',');
 
   // Смена по времени, как на странице работников: дневная 7:30–19:30, ночная 19:30–7:30 (до 7:30 — вчерашняя ночная)
@@ -33,7 +33,7 @@ const Production = (() => {
     if (!list.some(potsOf)) return '';
     const pots = list.reduce((s, e) => s + (unitOf(e) === 'штук' ? e.qty : potsOf(e)), 0);
     const rest = list.filter((e) => unitOf(e) === 'коробок' && !potsOf(e)).reduce((s, e) => s + e.qty, 0);
-    return `${num(Math.round(pots * 100) / 100)} горшков${rest ? ` + ${num(rest)} коробок без пересчёта` : ''}`;
+    return `${num(Math.round(pots * 100) / 100)} шт${rest ? ` + ${num(rest)} коробок без пересчёта` : ''}`;
   };
   // Итоги рядами в 2 строки: вид продукции над цветом, количество над горшками; внизу «Всего»
   const sumsHtml = (list) => {
@@ -45,7 +45,7 @@ const Production = (() => {
       groups.get(k).items.push(e);
     }
     const row = (top, sub, qty, pots, cls = '') => `<div class="sumrow${cls}"><div class="rec__col"><span class="sumrow__top">${top}</span><span class="rec__sub">${sub || '&nbsp;'}</span></div><div class="rec__col rec__q"><b>${qty}</b><span class="rec__sub">${pots || '&nbsp;'}</span></div></div>`;
-    const potsText = (items) => (items.some(potsOf) ? `${num(Math.round(items.reduce((s, e) => s + (unitOf(e) === 'штук' ? e.qty : potsOf(e)), 0) * 100) / 100)} горшков` : '');
+    const potsText = (items) => (items.some(potsOf) ? `${num(Math.round(items.reduce((s, e) => s + (unitOf(e) === 'штук' ? e.qty : potsOf(e)), 0) * 100) / 100)} шт` : '');
     return [...groups.values()].map((g) => row(esc(g.product || '—'), esc(g.sub), totalText(g.items), potsText(g.items))).join('')
       + row('Всего', '', totalText(list), potsLine(list), ' sumrow--total');
   };
@@ -176,7 +176,7 @@ const Production = (() => {
     return `<p class="small muted">Работники выбирают из этих списков при сдаче продукции.</p>
       ${btn('products', 'Виды продукции', products.length)}
       ${btn('colors', 'Цвета', colors.length)}
-      ${btn('pots', 'Горшков в коробках', products.length ? `${withPots} из ${products.length}` : '—')}`;
+      ${btn('pots', 'Штук в коробках', products.length ? `${withPots} из ${products.length}` : '—')}`;
   }
 
   // Окно ввода: kind = products | colors | pots
@@ -204,14 +204,14 @@ const Production = (() => {
         };
       });
     } else {
-      openSheet(`<h3>Горшков в коробках</h3>
-        <p class="sheet__sub">${products.length ? 'Сколько горшков в одной коробке. Если число задано, коробки в записях пересчитываются в горшки; пустое поле — без пересчёта.' : 'Сначала добавьте виды продукции — тогда здесь появится строка на каждый вид.'}</p>
-        <div class="pots">${products.map((p) => `<label class="pots__row"><span>${esc(p)}</span><input class="input pots__in" data-pots="${esc(p)}" inputmode="numeric" placeholder="—" value="${perBox[p] || ''}" aria-label="Горшков в коробке: ${esc(p)}"></label>`).join('')}</div>
+      openSheet(`<h3>Штук в коробках</h3>
+        <p class="sheet__sub">${products.length ? 'Сколько штук в одной коробке. Если число задано, коробки в записях пересчитываются в горшки; пустое поле — без пересчёта.' : 'Сначала добавьте виды продукции — тогда здесь появится строка на каждый вид.'}</p>
+        <div class="pots">${products.map((p) => `<label class="pots__row"><span>${esc(p)}</span><input class="input pots__in" data-pots="${esc(p)}" inputmode="numeric" placeholder="—" value="${perBox[p] || ''}" aria-label="Штук в коробке: ${esc(p)}"></label>`).join('')}</div>
         ${products.length ? actions : '<div class="sheet__actions"><button class="btn" value="cancel">Закрыть</button></div>'}`, (b) => {
         b.onclick = (e) => {
           if (!e.target.closest('[data-save]')) return;
           const list = [...b.querySelectorAll('[data-pots]')].map((i) => ({ name: i.dataset.pots, n: Number(i.value.replace(',', '.')) })).filter((p) => p.n > 0);
-          done(saveLists(products, colors, list), `Сохранено: горшков указано для ${list.length} из ${products.length}`);
+          done(saveLists(products, colors, list), `Сохранено: штук указано для ${list.length} из ${products.length}`);
         };
       });
     }
