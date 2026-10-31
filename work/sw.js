@@ -1,7 +1,7 @@
 // Офлайн-оболочка страницы работников (/work/): страница — сначала сеть, остальное — из кэша с обновлением в фоне.
 // Свой scope (work/) — основной service worker приложения эту страницу не трогает.
 // Версия — та же, что у приложения: её поднимает tools/bump.sh вместе с ?v= в index.html и номером на странице.
-const VERSION = '83';
+const VERSION = '84';
 const CACHE = `tw-shell-v${VERSION}`;
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', `work.js?v=${VERSION}`, `work.css?v=${VERSION}`, `../css/style.css?v=${VERSION}`, `../js/config.js?v=${VERSION}`, `../js/sheet-drag.js?v=${VERSION}`, '../icons/icon-192.png'];
 
